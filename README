@@ -1,0 +1,9 @@
+Visualisation tool for LED-torus animations.
+
+The software for the LED-torus is Free Software, it may be
+distributed under the GPL Licence, either version 2, or (at your
+option) a later version of the GPL. See the file COPYING for details.
+
+There is a Qt project file - run `qmake && make` to build.
+
+Contact: Kristian Nielsen <knielsen@knielsen-hq.org>

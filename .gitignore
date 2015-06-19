@@ -1,0 +1,5 @@
+*.o
+Makefile
+*~
+ledtorus-viewer
+moc_*.cpp
