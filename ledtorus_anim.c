@@ -331,6 +331,28 @@ an_test(frame_t *f, uint32_t c, void *st __attribute__((unused)))
 }
 
 
+static void
+an_test2(frame_t *f, uint32_t c, void *st __attribute__((unused)))
+{
+  uint32_t x, y, a;
+
+  cls(f);
+  for (a = 0; a < LEDS_TANG; ++a)
+  {
+    for (y = 0; y < LEDS_Y; ++y)
+    {
+      for (x = 5; x <= 5; ++x)
+      {
+        if ((a/(LEDS_TANG/4)) % 2)
+          setpix(f, x, y, a, 255, 255, 255);
+        else
+          setpix(f, x, y, a, 255, 0, 0);
+      }
+    }
+  }
+}
+
+
 static char *
 my_str_mk(char *dst, const char *src)
 {
@@ -398,8 +420,11 @@ main(int argc, char *argv[])
     case 1:
       an_test(&frame, n, NULL);
       break;
-    default:
+    case 2:
       an_supply_voltage(&frame, n, NULL);
+      break;
+    default:
+      an_test2(&frame, n, NULL);
       break;
     }
     buf[0] = 0;
