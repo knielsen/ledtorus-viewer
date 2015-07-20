@@ -14,11 +14,11 @@
 
 /*
   Frame buffer. ToDo: use read frames from io instead.
-  Indexed as r_or_g_or_b + 3*(y + x*LEDS_Y + a*(LEDS_Y*LEDS_X)).
+  Indexed as r_or_g_or_b_or_alpha + 4*(y + x*LEDS_Y + a*(LEDS_Y*LEDS_X)).
   Doplet (samme data to gange efter hinanden), så den kan give farve
   both to the starting and ending vertex of a line segment.
 */
-static uint8_t framebuf[3*LEDS_X*LEDS_Y*LEDS_TANG*2];
+static uint8_t framebuf[4*LEDS_X*LEDS_Y*LEDS_TANG*2];
 /*
   Vertex buffer for line segments. First all of the starting vertices,
   then all of the ending vertices, to match with raw colour framebuffer.
@@ -81,7 +81,6 @@ build_geometry()
   /* Line segments for the LED torus. */
   static const float mm_to_world_factor = 0.54/47.19;
   static const float led_dist_mm = 5.5;
-  uint8_t *fp = framebuf;
   uint16_t *p = torus_line_indices;
   for (int k = 0; k < LEDS_TANG; ++k)
   {
@@ -107,16 +106,28 @@ build_geometry()
         torus_line_vertices[3*idx+(3*LEDS_X*LEDS_Y*LEDS_TANG+2)] = dist*cosf(angle2);
         *p++ = idx;
         *p++ = idx+LEDS_X*LEDS_Y*LEDS_TANG;
-
-        /* Generate some colour, for testing. */
-        fp[3*idx] = k*255/LEDS_TANG;
-        fp[3*idx+1] = i*255/LEDS_Y;
-        fp[3*idx+2] = j*255/LEDS_X;
       }
     }
   }
 
   cnt_torus_lines = 2*LEDS_X*LEDS_Y*LEDS_TANG;
+}
+
+
+static void
+get_led_colours(const uint8_t *frame)
+{
+  uint32_t i = 0, j = 0;
+  while (i < 3*LEDS_X*LEDS_Y*LEDS_TANG)
+  {
+    uint8_t c_r = framebuf[j++] = frame[i++];
+    uint8_t c_g = framebuf[j++] = frame[i++];
+    uint8_t c_b = framebuf[j++] = frame[i++];
+    /* Make turned-off led transparent, others opaque. */
+    framebuf[j++] = ((c_r || c_g || c_b) ? 255 : 0);
+  }
+  /* Double the colour values. */
+  memcpy(&framebuf[j], &framebuf[0], 4*LEDS_X*LEDS_Y*LEDS_TANG);
 }
 
 void
@@ -125,19 +136,20 @@ draw_ledtorus()
   const uint8_t *frame;
 
   glDisable(GL_LIGHTING);
+  glEnable(GL_BLEND);
+  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
   glVertexPointer(3, GL_FLOAT, 0, torus_line_vertices);
   glEnableClientState(GL_VERTEX_ARRAY);
   frame= get_current_frame();
-  memcpy(framebuf, frame, 3*LEDS_X*LEDS_Y*LEDS_TANG);
+  get_led_colours(frame);
   release_frame();
-  /* Double the colour values. */
-  memcpy(framebuf+3*LEDS_X*LEDS_Y*LEDS_TANG, framebuf, 3*LEDS_X*LEDS_Y*LEDS_TANG);
-  glColorPointer(3, GL_UNSIGNED_BYTE, 0, framebuf);
+  glColorPointer(4, GL_UNSIGNED_BYTE, 0, framebuf);
   glEnableClientState(GL_COLOR_ARRAY);
   glLineWidth(4.0);
   glDrawElements(GL_LINES, cnt_torus_lines, GL_UNSIGNED_SHORT, torus_line_indices);
   glDisableClientState(GL_COLOR_ARRAY);
   glDisableClientState(GL_VERTEX_ARRAY);
+  glDisable(GL_BLEND);
   glEnable(GL_LIGHTING);
 
   glVertexPointer(3, GL_FLOAT, 0, vertices.constData());
