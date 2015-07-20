@@ -3,3 +3,5 @@ Makefile
 *~
 ledtorus-viewer
 moc_*.cpp
+a.out
+ledtorus_anim

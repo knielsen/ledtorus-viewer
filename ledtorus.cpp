@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#include <stdio.h>
 
 #include <QGLWidget>
 #include <QVector3D>
@@ -9,11 +10,6 @@
 
 #include "io.h"
 #include "ledtorus.h"
-
-
-#define LEDS_X 7
-#define LEDS_Y 8
-#define LEDS_TANG 335
 
 
 /*
@@ -89,8 +85,8 @@ build_geometry()
   uint16_t *p = torus_line_indices;
   for (int k = 0; k < LEDS_TANG; ++k)
   {
-    float angle1 = 2.0*M_PI*(float)k/(float)LEDS_TANG;
-    float angle2 = 2.0*M_PI*(float)(k+1)/(float)LEDS_TANG;
+    float angle1 = 2.0*M_PI*(1.0f-(float)k/(float)LEDS_TANG);
+    float angle2 = 2.0*M_PI*(1.0f-(float)(k+1)/(float)LEDS_TANG);
 
     for (int i= 0; i < LEDS_X; ++i)
     {
@@ -98,7 +94,7 @@ build_geometry()
 
       for (int j= 0; j < LEDS_Y; ++j)
       {
-        float height = led_dist_mm*((float)j - (float)(LEDS_Y-1)/2.0)*mm_to_world_factor;
+        float height = led_dist_mm*((float)(LEDS_Y-1)/2.0 - (float)j)*mm_to_world_factor;
         if ( (i == 0 && (j < 2 || j > 5)) ||
              ((i == 1 || i == 6) && (j == 0 || j == 7)))
           continue;
@@ -126,20 +122,20 @@ build_geometry()
 void
 draw_ledtorus()
 {
-  const uint8_t *frame= get_current_frame();
+  const uint8_t *frame;
 
   glDisable(GL_LIGHTING);
   glVertexPointer(3, GL_FLOAT, 0, torus_line_vertices);
   glEnableClientState(GL_VERTEX_ARRAY);
-  // ToDo: use real data.
-  //memcpy(framebuf, frame, 3*LEDS_X*LEDS_Y*LEDS_TANG);
+  frame= get_current_frame();
+  memcpy(framebuf, frame, 3*LEDS_X*LEDS_Y*LEDS_TANG);
+  release_frame();
   /* Double the colour values. */
   memcpy(framebuf+3*LEDS_X*LEDS_Y*LEDS_TANG, framebuf, 3*LEDS_X*LEDS_Y*LEDS_TANG);
   glColorPointer(3, GL_UNSIGNED_BYTE, 0, framebuf);
   glEnableClientState(GL_COLOR_ARRAY);
   glLineWidth(4.0);
   glDrawElements(GL_LINES, cnt_torus_lines, GL_UNSIGNED_SHORT, torus_line_indices);
-  release_frame();
   glDisableClientState(GL_COLOR_ARRAY);
   glDisableClientState(GL_VERTEX_ARRAY);
   glEnable(GL_LIGHTING);
@@ -149,7 +145,7 @@ draw_ledtorus()
   glNormalPointer(GL_FLOAT, 0, normals.constData());
   glEnableClientState(GL_NORMAL_ARRAY);
   glMaterialfv(GL_FRONT_AND_BACK, GL_AMBIENT_AND_DIFFUSE, col_red);
-  glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_SHORT, faces.constData());
+  //glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_SHORT, faces.constData());
   glDisableClientState(GL_NORMAL_ARRAY);
   glDisableClientState(GL_VERTEX_ARRAY);
 }

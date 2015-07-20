@@ -10,7 +10,6 @@
 
 #include "io.h"
 
-#define SIDE 11
 #define FRAMES 4
 
 /*
@@ -36,7 +35,7 @@
 static int num_ready_frames= 0;
 static int first_free_frame= 0;
 static int last_free_frame= FRAMES-1;
-uint8_t frames[FRAMES][SIDE][SIDE][SIDE];
+uint8_t frames[FRAMES][3*LEDS_X*LEDS_Y*LEDS_TANG];
 
 pthread_mutex_t frames_mutex= PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t frames_cond= PTHREAD_COND_INITIALIZER;
@@ -92,7 +91,7 @@ io_thread_handler(void *app_data __attribute__((unused)))
     Frame format:
     <0> <frame counter 0-63> <len_low> <len_high> <data> <checksum> <0xff>
   */
-  uint8_t buf[1+1+2+(SIDE*SIDE*SIDE+1)/2+1+1];
+  uint8_t buf[6 + 3*LEDS_X*LEDS_Y*LEDS_TANG];
 
   for (;;)
   {
@@ -128,10 +127,10 @@ io_thread_handler(void *app_data __attribute__((unused)))
     }
     /* ToDo: make available the frame number buf[1] somewhere. */
     uint16_t len= buf[2] | (buf[3] << 8);
-    if (len != (SIDE*SIDE*SIDE+1)/2)
+    if (len != 3*LEDS_X*LEDS_Y*LEDS_TANG)
     {
       fprintf(stderr, "Frame error: wrong len %u != %u\n",
-              (unsigned)len, (unsigned)((SIDE*SIDE*SIDE+1)/2));
+              (unsigned)len, (unsigned)(3*LEDS_X*LEDS_Y*LEDS_TANG));
       continue;
     }
     if (buf[sizeof(buf)-1] != 0xff)
@@ -150,27 +149,7 @@ io_thread_handler(void *app_data __attribute__((unused)))
     }
 
     int slot= get_free_slot();
-    int odd_even= 0;
-    int idx= 4;
-    for (int i= 0; i < SIDE; ++i)
-    {
-      for (int k= 0; k < SIDE; ++k)
-      {
-        for (int j= 0; j < SIDE; ++j)
-        {
-          if (odd_even)
-          {
-            frames[slot][i][j][k]= buf[idx++] & 0xf;
-            odd_even= 0;
-          }
-          else
-          {
-            frames[slot][i][j][k]= buf[idx] >> 4;
-            odd_even= 1;
-          }
-        }
-      }
-    }
+    memcpy(frames[slot], buf + 4, 3*LEDS_X*LEDS_Y*LEDS_TANG);
     slot_ready();
   }
 
@@ -178,7 +157,7 @@ io_thread_handler(void *app_data __attribute__((unused)))
 }
 
 
-static uint8_t current_frame[SIDE][SIDE][SIDE];
+static uint8_t current_frame[3*LEDS_X*LEDS_Y*LEDS_TANG];
 static pthread_mutex_t current_frame_mutex= PTHREAD_MUTEX_INITIALIZER;
 
 /*
@@ -243,7 +222,7 @@ const uint8_t *
 get_current_frame()
 {
   pthread_mutex_lock(&current_frame_mutex);
-  return &(current_frame[0][0][0]);
+  return &(current_frame[0]);
 }
 
 void

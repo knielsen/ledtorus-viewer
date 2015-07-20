@@ -1,6 +1,11 @@
 #include <stdint.h>
 
-#define FRAMERATE 50
+#define LEDS_X 7
+#define LEDS_Y 8
+#define LEDS_TANG 335
+
+
+#define FRAMERATE 15
 
 void start_io_threads();
 
