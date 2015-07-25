@@ -137,7 +137,7 @@ draw_ledtorus()
 
   glDisable(GL_LIGHTING);
   glEnable(GL_BLEND);
-  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+  glBlendFunc(GL_ONE, GL_ONE);
   glVertexPointer(3, GL_FLOAT, 0, torus_line_vertices);
   glEnableClientState(GL_VERTEX_ARRAY);
   frame= get_current_frame();

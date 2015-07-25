@@ -126,7 +126,7 @@ void GLWidget::initializeGL()
 
     build_geometry();
 
-    glEnable(GL_DEPTH_TEST);
+    //glEnable(GL_DEPTH_TEST);
     glEnable(GL_CULL_FACE);
     glShadeModel(GL_SMOOTH);
     glEnable(GL_LIGHTING);
