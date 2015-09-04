@@ -15,7 +15,7 @@
 
 #define LEDS_X 7
 #define LEDS_Y 8
-#define LEDS_TANG 335
+#define LEDS_TANG 205
 typedef uint8_t frame_t[LEDS_Y*LEDS_X*LEDS_TANG][3];
 
 #define F_PI 3.141592654f
@@ -398,9 +398,9 @@ an_supply_voltage(frame_t *f, uint32_t c, void *st __attribute__((unused)))
   p = my_str_mk(p+strlen(p), "V");
   c2 = c % 270;
   if (c2 < 72)
-    stretch = 2.5f - 0.4f * sinf((float)c2*(2.0f*F_PI/72.0f));
+    stretch = 1.4f - 0.4f * cosf((float)c2*(2.0f*F_PI/72.0f));
   else
-    stretch = 2.5f;
+    stretch = 1.0f;
   a = (2*c)%LEDS_TANG;
   g_text(f, buf, 4, a, 255, 100, 20, stretch);
 }
@@ -456,7 +456,7 @@ main(int argc, char *argv[])
   uint32_t n;
   frame_t frame;
 
-  for (n = 0; n < 10000; ++n)
+  for (n = 0; n < 3000; ++n)
   {
     uint8_t buf[512];
     uint16_t len = sizeof(frame_t);
