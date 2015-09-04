@@ -87,11 +87,8 @@ release_slot()
 static void *
 io_thread_handler(void *app_data __attribute__((unused)))
 {
-  /*
-    Frame format:
-    <0> <frame counter 0-63> <len_low> <len_high> <data> <checksum> <0xff>
-  */
-  uint8_t buf[6 + 3*LEDS_X*LEDS_Y*LEDS_TANG];
+  /* Frame format is raw framebuffer data padded to multiple of 512 bytes. */
+  uint8_t buf[(3*LEDS_X*LEDS_Y*LEDS_TANG+511)/512*512];
 
   for (;;)
   {
@@ -119,37 +116,9 @@ io_thread_handler(void *app_data __attribute__((unused)))
       }
       sofar+= res;
     }
-    /* ToDo: implement re-sync ability. */
-    if (buf[0] != 0)
-    {
-      fprintf(stderr, "Frame error: no leading zero (0x%2x)\n", buf[0]);
-      continue;
-    }
-    /* ToDo: make available the frame number buf[1] somewhere. */
-    uint16_t len= buf[2] | (buf[3] << 8);
-    if (len != 3*LEDS_X*LEDS_Y*LEDS_TANG)
-    {
-      fprintf(stderr, "Frame error: wrong len %u != %u\n",
-              (unsigned)len, (unsigned)(3*LEDS_X*LEDS_Y*LEDS_TANG));
-      continue;
-    }
-    if (buf[sizeof(buf)-1] != 0xff)
-    {
-      fprintf(stderr, "Frame error: no trailing 0xff (0x%2x)\n",
-              buf[sizeof(buf)-1]);
-      continue;
-    }
-    uint8_t checksum= 0;
-    for (unsigned i= 0; i < sizeof(buf); ++i)
-      checksum= checksum ^ buf[i];
-    if (checksum != 0xff)
-    {
-      fprintf(stderr, "Frame error: bad checksum 0x%x != 0xff\n", checksum);
-      continue;
-    }
 
     int slot= get_free_slot();
-    memcpy(frames[slot], buf + 4, 3*LEDS_X*LEDS_Y*LEDS_TANG);
+    memcpy(frames[slot], buf, 3*LEDS_X*LEDS_Y*LEDS_TANG);
     slot_ready();
   }
 

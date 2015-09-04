@@ -458,10 +458,8 @@ main(int argc, char *argv[])
 
   for (n = 0; n < 10000; ++n)
   {
-    uint8_t buf[6];
-    uint8_t checksum;
+    uint8_t buf[512];
     uint16_t len = sizeof(frame_t);
-    uint32_t i;
 
     switch (argc > 1 ? atoi(argv[1]) : 0)
     {
@@ -481,21 +479,12 @@ main(int argc, char *argv[])
       an_test2(&frame, n, NULL);
       break;
     }
-    buf[0] = 0;
-    buf[1] = n % 64;
-    buf[2] = len & 0xff;
-    buf[3] = len >> 8;
-    write(1, buf, 4);
     write(1, frame, len);
-    checksum = 0xff;
-    for (i = 0; i < 4; ++i)
-      checksum ^= buf[i];
-    for (i = 0; i < len; ++i)
-      checksum ^= ((uint8_t *)&frame)[i];
-    checksum ^= 0xff;
-    buf[4] = checksum;
-    buf[5] = 0xff;
-    write(1, buf+4, 2);
+    if (len % 512)
+    {
+      memset(buf, 0, 512 - (len % 512));
+      write(1, buf, 512 - (len % 512));
+    }
   }
   return 0;
 }
