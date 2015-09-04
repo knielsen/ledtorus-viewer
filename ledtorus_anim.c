@@ -1,9 +1,16 @@
+/*
+  gcc -Wall ledtorus_anim.c simplex_noise.c colours.c -o ledtorus_anim -lm
+*/
+
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
 #include <math.h>
 #include <unistd.h>
+
+#include "simplex_noise.h"
+#include "colours.h"
 
 
 #define LEDS_X 7
@@ -399,13 +406,57 @@ an_supply_voltage(frame_t *f, uint32_t c, void *st __attribute__((unused)))
 }
 
 
+static void
+an_simplex_noise1(frame_t *f, uint32_t c, void *st __attribute__((unused)))
+{
+  uint32_t x, y, a;
+
+  cls(f);
+  for (a = 0; a < LEDS_TANG; a += 4)
+  {
+    for (x = 0; x < LEDS_X; ++x)
+    {
+      for (y = 0; y < LEDS_Y; ++y)
+      {
+        float sn;
+        float nx, ny, nz;
+        struct colour3 col3;
+
+        nx = (((float)x+2.58f)*0.06f)*cosf((float)a * (F_PI*2.0f/(float)LEDS_TANG));
+        nz = (((float)x+2.58f)*0.06f)*sinf((float)a * (F_PI*2.0f/(float)LEDS_TANG));
+        ny = (float)y*0.06f;
+        nx = nx + (float)c*0.02f;
+        ny = ny + (float)c*0.007f;
+        nz = nz + (float)c*0.005f;
+        //sn = simplex_noise_3d((float)x*0.2f, (float)y*0.2f, (float)(a+5*c)*0.012f);
+        sn = 0.5f*(1.0f+simplex_noise_3d(nx, ny, nz));
+/*
+        if (sn >= 0.0f && sn <= 1.0f)
+        {
+          col3 = hsv2rgb_f(sn, 1.0f, 1.0f);
+          setpix(f, x, y, a, col3.r, col3.g, col3.b);
+        }
+*/
+        if (sn >= 0.6f)
+        {
+          uint32_t i = (uint32_t)((sn-0.6f)*(256/0.4f));
+          setpix(f, x, y, a, colour_gradient_blue_green_gold[i][0],
+                 colour_gradient_blue_green_gold[i][1],
+                 colour_gradient_blue_green_gold[i][2]);
+        }
+      }
+    }
+  }
+}
+
+
 int
 main(int argc, char *argv[])
 {
   uint32_t n;
   frame_t frame;
 
-  for (n = 0; n < 1000; ++n)
+  for (n = 0; n < 10000; ++n)
   {
     uint8_t buf[6];
     uint8_t checksum;
@@ -422,6 +473,9 @@ main(int argc, char *argv[])
       break;
     case 2:
       an_supply_voltage(&frame, n, NULL);
+      break;
+    case 3:
+      an_simplex_noise1(&frame, n, NULL);
       break;
     default:
       an_test2(&frame, n, NULL);
