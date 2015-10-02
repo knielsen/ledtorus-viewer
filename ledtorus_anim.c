@@ -24,6 +24,22 @@ struct colour3 {
   uint8_t r, g, b;
 };
 
+struct torus_xz { float x, z; };
+
+
+/*
+  Compute rectangular coordinates in the horizontal plane, taking into account
+  the offset of the innermost LEDs from the center.
+*/
+static struct torus_xz torus_polar2rect(float x, float a)
+{
+  struct torus_xz res;
+  float angle = a * (F_PI*2.0f/(float)LEDS_TANG);
+  res.x = (x+2.58f)*cosf(angle);
+  res.z = (x+2.58f)*sinf(angle);
+  return res;
+}
+
 
 static inline void
 setpix(frame_t *f, uint32_t x, uint32_t y, uint32_t a,
@@ -420,7 +436,6 @@ an_simplex_noise1(frame_t *f, uint32_t c, void *st __attribute__((unused)))
       {
         float sn;
         float nx, ny, nz;
-        struct colour3 col3;
 
         nx = (((float)x+2.58f)*0.06f)*cosf((float)a * (F_PI*2.0f/(float)LEDS_TANG));
         nz = (((float)x+2.58f)*0.06f)*sinf((float)a * (F_PI*2.0f/(float)LEDS_TANG));
@@ -433,13 +448,152 @@ an_simplex_noise1(frame_t *f, uint32_t c, void *st __attribute__((unused)))
 /*
         if (sn >= 0.0f && sn <= 1.0f)
         {
+          struct colour3 col3;
           col3 = hsv2rgb_f(sn, 1.0f, 1.0f);
           setpix(f, x, y, a, col3.r, col3.g, col3.b);
         }
 */
-        if (sn >= 0.6f)
+        if (sn >= 0.4f)
         {
-          uint32_t i = (uint32_t)((sn-0.6f)*(256/0.4f));
+          float fi;
+          uint32_t i;
+          fi = (sn-0.3f)*(256/0.5f);
+          if (fi < 0)
+            i = 0;
+          else if (fi > 255)
+            i = 255;
+          else
+            i = (uint32_t)fi;
+          setpix(f, x, y, a, colour_gradient_blue_green_gold[i][0],
+                 colour_gradient_blue_green_gold[i][1],
+                 colour_gradient_blue_green_gold[i][2]);
+        }
+      }
+    }
+  }
+}
+
+
+static void
+an_simplex_noise2(frame_t *f, uint32_t c, void *st __attribute__((unused)))
+{
+  uint32_t x, y, a;
+
+  cls(f);
+  for (a = 0; a < LEDS_TANG; a += 1)
+  {
+    for (x = 0; x < LEDS_X; ++x)
+    {
+      for (y = 0; y < LEDS_Y; ++y)
+      {
+        float sn;
+        float nx, ny, nz;
+
+        nx = (((float)x+2.58f)*0.06f)*cosf((float)a * (F_PI*2.0f/(float)LEDS_TANG));
+        nz = (((float)x+2.58f)*0.06f)*sinf((float)a * (F_PI*2.0f/(float)LEDS_TANG));
+        ny = (float)y*0.06f;
+        nx = nx + (float)c*0.02f;
+        ny = ny + (float)c*0.007f;
+        nz = nz + (float)c*0.005f;
+        //sn = simplex_noise_3d((float)x*0.2f, (float)y*0.2f, (float)(a+5*c)*0.012f);
+        sn = 0.5f*(1.0f+simplex_noise_3d(nx, ny, nz));
+/*
+        if (sn >= 0.0f && sn <= 1.0f)
+        {
+          struct colour3 col3;
+          col3 = hsv2rgb_f(sn, 1.0f, 1.0f);
+          setpix(f, x, y, a, col3.r, col3.g, col3.b);
+        }
+*/
+        if (sn >= 0.4f)
+        {
+          float fi;
+          uint32_t i;
+          fi = (sn-0.4f)*(256/0.5f);
+          if (fi < 0)
+            i = 0;
+          else if (fi > 255)
+            i = 255;
+          else
+            i = (uint32_t)fi;
+          setpix(f, x, y, a, colour_gradient_blue_green_gold[i][0],
+                 colour_gradient_blue_green_gold[i][1],
+                 colour_gradient_blue_green_gold[i][2]);
+        }
+      }
+    }
+  }
+}
+
+
+static void
+an_simplex_noise3(frame_t *f, uint32_t c, void *st __attribute__((unused)))
+{
+  /* If tang_spacing > 1, then a dottet appearance results. */
+  static const uint32_t tang_spacing = 1;
+  /* Frequency of first octave. */
+  static const float base_scale = 0.076f;
+  /* Level below which voxel is invisible (interval [-1..1]). */
+  static const float threshold = -0.2f;
+  /* Factor to overshoot intensity, causing some saturation at either end. */
+  static const float saturation_fact = 0.36f/0.6f;
+  /* Relative frequencies of the different noise octaves. */
+  static const float octaves_freq[] = {1.0f, 2.0f, 4.0f};
+  /* Relative amplitude of the different noise octaves. */
+  static const float octaves_ampl[] = {1.0f, 0.6f, 0.36f};
+  uint32_t x, y, a, i;
+  float px, py, pz;
+  float octave_scaling;
+
+  octave_scaling = 0.0f;
+  for (i = 0; i < sizeof(octaves_ampl)/sizeof(octaves_ampl[0]); ++i)
+    octave_scaling += octaves_ampl[i];
+  octave_scaling = 1.0f/octave_scaling;
+
+  /* Base position moving around in the virtual world of the simplex noise. */
+  // ToDo: incremental movement in varying direction.
+  px =(float)c*0.010f;
+  py =(float)c*0.005f;
+  pz =(float)c*0.004f;
+
+  cls(f);
+
+  for (a = 0; a < LEDS_TANG; a += tang_spacing)
+  {
+    for (x = 0; x < LEDS_X; ++x)
+    {
+      for (y = 0; y < LEDS_Y; ++y)
+      {
+        float sn;
+        float nx, ny, nz;
+        struct torus_xz rect_xz;
+
+        rect_xz = torus_polar2rect((float)x, (float)a);
+        nx = base_scale * rect_xz.x;
+        ny = base_scale * (float)y;
+        nz = base_scale * rect_xz.z;
+        // ToDo: Some gentle rotation, eg A*c around X, B*c around Y or something.
+
+        sn = 0.0f;
+        for (i = 0; i < sizeof(octaves_freq)/sizeof(octaves_freq[0]); ++i)
+        {
+          float freq = octaves_freq[i];
+          float amp = octaves_ampl[i];
+          sn += amp*simplex_noise_3d(freq*nx + px, freq*ny + py, freq*nz + pz);
+        }
+        sn *= octave_scaling;
+
+        if (sn >= threshold)
+        {
+          float fi;
+          uint32_t i;
+          fi = (sn-threshold)*(256/(saturation_fact*(1.0f-threshold)));
+          if (fi < 0)
+            i = 0;
+          else if (fi > 255)
+            i = 255;
+          else
+            i = (uint32_t)fi;
           setpix(f, x, y, a, colour_gradient_blue_green_gold[i][0],
                  colour_gradient_blue_green_gold[i][1],
                  colour_gradient_blue_green_gold[i][2]);
@@ -456,7 +610,7 @@ main(int argc, char *argv[])
   uint32_t n;
   frame_t frame;
 
-  for (n = 0; n < 3000; ++n)
+  for (n = 0; n < 5000; ++n)
   {
     uint8_t buf[512];
     uint16_t len = sizeof(frame_t);
@@ -474,6 +628,12 @@ main(int argc, char *argv[])
       break;
     case 3:
       an_simplex_noise1(&frame, n, NULL);
+      break;
+    case 4:
+      an_simplex_noise2(&frame, n, NULL);
+      break;
+    case 5:
+      an_simplex_noise3(&frame, n, NULL);
       break;
     default:
       an_test2(&frame, n, NULL);
