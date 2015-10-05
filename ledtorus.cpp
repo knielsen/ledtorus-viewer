@@ -114,15 +114,28 @@ build_geometry()
 }
 
 
+static uint8_t
+gamma_correct(uint8_t rgb_component)
+{
+  static const float gamma = 0.6f;
+  static float normalise = 0.0f;
+  if (rgb_component == 0)
+    return 0;
+  if (normalise == 0.0f)
+    normalise = 255.0f / powf(255.0f, gamma);
+  return (uint8_t)roundf(normalise*powf(rgb_component, gamma));
+}
+
+
 static void
 get_led_colours(const uint8_t *frame)
 {
   uint32_t i = 0, j = 0;
   while (i < 3*LEDS_X*LEDS_Y*LEDS_TANG)
   {
-    uint8_t c_r = framebuf[j++] = frame[i++];
-    uint8_t c_g = framebuf[j++] = frame[i++];
-    uint8_t c_b = framebuf[j++] = frame[i++];
+    uint8_t c_r = framebuf[j++] = gamma_correct(frame[i++]);
+    uint8_t c_g = framebuf[j++] = gamma_correct(frame[i++]);
+    uint8_t c_b = framebuf[j++] = gamma_correct(frame[i++]);
     /* Make turned-off led transparent, others opaque. */
     framebuf[j++] = ((c_r || c_g || c_b) ? 255 : 0);
   }
