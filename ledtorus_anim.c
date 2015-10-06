@@ -55,6 +55,10 @@ static inline struct hsv3 mk_hsv3_f(float h, float s, float v)
 struct torus_xz { float x, z; };
 
 
+/* Number of migrating dots along one side of the migrating plane. */
+#define MIG_SIDE LEDS_Y
+
+
 /*
   Union with state data for all animations that need one. This way, a single
   statically-allocated memory area can be shared among all animations.
@@ -76,6 +80,19 @@ union anim_data {
       float fade_factor;
     } p2[300];
   } fireworks;
+
+  struct st_migrating_dots {
+    struct {
+      float x,y,z,v;
+      int target, delay, col, new_col;
+    } dots[MIG_SIDE*MIG_SIDE];
+    /* 0/1 is bottom/top, 2/3 is left/right, 4/5 is front/back. */
+    int start_plane, end_plane;
+    int base_frame;
+    int wait;
+    int stage1;
+    int text_idx;
+  } migrating_dots;
 };
 
 
@@ -899,11 +916,325 @@ an_fireworks(frame_t *f, uint32_t frame, union anim_data *data)
 }
 
 
+/* Migrating dots animation. */
+
+
+static const int migrating_dots_col1 = 15;
+static const int migrating_dots_col2 = 9;
+
+static int
+ut_migrating_dots_get_colour(struct st_migrating_dots *c, int idx,
+                             const char *glyph, int glyph_width)
+{
+#if 1   /* ToDo */
+  return migrating_dots_col1;
+#else
+  if (!glyph)
+    return migrating_dots_col1;
+  int x, y;
+  switch(c->end_plane)
+  {
+  case 0:
+  case 1:
+    if (c->start_plane/2 == 1)
+    {
+      x = c->dots[idx].target;
+      y = (MIG_SIDE-1) - c->dots[idx].y;
+    }
+    else
+    {
+      x = c->dots[idx].x;
+      y = (MIG_SIDE-1) - c->dots[idx].target;
+    }
+    break;
+  case 2:
+    if (c->start_plane/2 == 0)
+    {
+      x = (MIG_SIDE-1) - c->dots[idx].y;
+      y = (MIG_SIDE-1) - c->dots[idx].target;
+    }
+    else
+    {
+      x = (MIG_SIDE-1) - c->dots[idx].target;
+      y = (MIG_SIDE-1) - c->dots[idx].z;
+    }
+    break;
+  case 3:
+    if (c->start_plane/2 == 0)
+    {
+      x = c->dots[idx].y;
+      y = (MIG_SIDE-1) - c->dots[idx].target;
+    }
+    else
+    {
+      x = c->dots[idx].target;
+      y = (MIG_SIDE-1) - c->dots[idx].z;
+    }
+    break;
+  case 4:
+  case 5:
+    if (c->start_plane/2 == 0)
+    {
+      x = c->dots[idx].x;
+      y = (MIG_SIDE-1) - c->dots[idx].target;
+    }
+    else
+    {
+      x = c->dots[idx].target;
+      y = (MIG_SIDE-1) - c->dots[idx].z;
+    }
+    break;
+  }
+  x = x - (MIG_SIDE-glyph_width)/2;
+  y = y - (MIG_SIDE-9)/2;
+  int col;
+  if (x < 0 || x >= glyph_width || y < 0 || y >= 9 ||
+        glyph[x + glyph_width*y] == ' ')
+    col = migrating_dots_col1;
+  else
+    col = migrating_dots_col2;
+  return col;
+#endif
+}
+
+
+static uint32_t
+in_migrating_dots(const struct ledtorus_anim *self, union anim_data *data)
+{
+  struct st_migrating_dots *c = &data->migrating_dots;
+  uint32_t i;
+
+  c->end_plane = 1;         /* Top; we will copy this to start_plane below. */
+  c->wait = 1000000;        /* Will trigger start of new round. */
+  c->stage1 = 0;            /* Pretend that we are at the end of stage2. */
+  c->text_idx = -5;
+  for (i = 0; i < MIG_SIDE*MIG_SIDE; ++i)
+    c->dots[i].new_col = migrating_dots_col1;
+
+  return 0;
+}
+
+
+static uint32_t
+an_migrating_dots(frame_t *f, uint32_t frame, union anim_data *data)
+{
+  static const int start_spread = 12;
+  static const float v_min = 0.9;
+  static const float v_range = 1.2;
+  static const float grav = -0.07;
+  static const int stage_pause = 8;
+  static const char *text = "LABITAT";
+  uint32_t i, j;
+
+  struct st_migrating_dots *c = &data->migrating_dots;
+
+  if (c->wait > stage_pause)
+  {
+    c->base_frame = frame;
+    c->wait = 0;
+
+    if (c->stage1)
+    {
+      /* Move to stage 2. */
+      c->stage1 = 0;
+      for (i = 0; i < MIG_SIDE*MIG_SIDE; ++i)
+      {
+        c->dots[i].delay = irand(start_spread);
+        if (c->end_plane == 0)
+          c->dots[i].v = 0;
+        else if (c->end_plane == 1)
+          c->dots[i].v = 2 + drand(v_range);
+        else
+          c->dots[i].v = (2*(c->end_plane%2)-1) * (v_min + drand(v_range));
+        c->dots[i].target = (MIG_SIDE-1)*(c->end_plane%2);
+      }
+    }
+    else
+    {
+      /* Start a new round. */
+      c->stage1 = 1;
+
+      /* We start where we last ended. */
+      c->start_plane = c->end_plane;
+      /*
+        Choose a plane to move to, but not the same or the one directly
+        opposite.
+      */
+      do
+        c->end_plane = irand(6);
+      while ((c->end_plane/2) == (c->start_plane/2));
+
+      const char *glyph = c->text_idx >= 0 ? 0/* ToDo font9[text[c->text_idx]]*/ : NULL;
+      ++c->text_idx;
+      if (c->text_idx >= strlen(text))
+        c->text_idx = -1;           /* -1 => One blank before we start over */
+      int glyph_width = glyph ? strlen(glyph)/9 : 0;
+
+      int idx = 0;
+      for (i = 0; i < MIG_SIDE; ++i)
+      {
+        /*
+          We will make a random permutation of each row of dots as they migrate
+          to a different plane.
+        */
+        int permute[MIG_SIDE];
+        for (j = 0; j < MIG_SIDE; ++j)
+          permute[j] = j;
+        int num_left = MIG_SIDE;
+        for (j = 0; j < MIG_SIDE; ++j)
+        {
+          int k = irand(num_left);
+          c->dots[idx].target = permute[k];
+          permute[k] = permute[--num_left];
+          int m = (MIG_SIDE-1)*(c->start_plane%2);
+          switch (c->start_plane)
+          {
+          case 0: case 1:
+            if (c->end_plane/2 == 1)
+            {
+              c->dots[idx].y = i;
+              c->dots[idx].x = j;
+            }
+            else
+            {
+              c->dots[idx].x = i;
+              c->dots[idx].y = j;
+            }
+            c->dots[idx].z = m;
+            break;
+          case 2: case 3:
+            if (c->end_plane/2 == 0)
+            {
+              c->dots[idx].y = i;
+              c->dots[idx].z = j;
+            }
+            else
+            {
+              c->dots[idx].z = i;
+              c->dots[idx].y = j;
+            }
+            c->dots[idx].x = m;
+            break;
+          case 4: case 5:
+            if (c->end_plane/2 == 0)
+            {
+              c->dots[idx].x = i;
+              c->dots[idx].z = j;
+            }
+            else
+            {
+              c->dots[idx].z = i;
+              c->dots[idx].x = j;
+            }
+            c->dots[idx].y = m;
+            break;
+          }
+          c->dots[idx].delay = irand(start_spread);
+          c->dots[idx].col = c->dots[idx].new_col;
+          c->dots[idx].new_col =
+            ut_migrating_dots_get_colour(c, idx, glyph, glyph_width);
+          if (c->start_plane == 1)
+            c->dots[idx].v = 0;
+          else if (c->start_plane == 0)
+            c->dots[idx].v = 2 + v_range;
+          else
+            c->dots[idx].v = (1-2*(c->start_plane%2)) * (v_min + drand(v_range));
+          ++idx;
+        }
+      }
+    }
+  }
+
+  int plane = c->stage1 ? c->start_plane : c->end_plane;
+  int d = frame - c->base_frame;
+  int moving = 0;
+  for (i = 0; i < MIG_SIDE*MIG_SIDE; ++i)
+  {
+    if (d < c->dots[i].delay)
+      continue;
+
+    float *m;
+    switch(plane)
+    {
+    case 0: case 1:
+      m = &c->dots[i].z;
+      break;
+    case 2: case 3:
+      m = &c->dots[i].x;
+      break;
+    case 4: case 5:
+      m = &c->dots[i].y;
+      break;
+    }
+
+    *m += c->dots[i].v;
+    if ((plane % 2 != c->stage1 && *m >= c->dots[i].target) ||
+        (plane % 2 == c->stage1 && *m <= c->dots[i].target))
+    {
+      *m = c->dots[i].target;
+    }
+    else
+    {
+      ++moving;
+      if (plane <= 1)
+        c->dots[i].v += grav;
+    }
+  }
+  if (moving == 0)
+    ++c->wait;
+
+  /* Draw the lot. */
+  cls(f);
+  for (i = 0; i < MIG_SIDE*MIG_SIDE; ++i)
+  {
+    int x = round(c->dots[i].x);
+    int y = round(c->dots[i].y*tang_factor);
+    int z = round(c->dots[i].z);
+    int col;
+    if (c->stage1)
+      col = c->dots[i].col;
+    else if (d < c->dots[i].delay)
+      col = c->dots[i].col + (c->dots[i].new_col - c->dots[i].col)*d/c->dots[i].delay;
+    else
+      col = c->dots[i].new_col;
+    if (plane/2 == 1)
+    {
+      if (x >= LEDS_X)
+        x = LEDS_X - 1;
+      if (x == LEDS_X - 1 && (z == 0 || z == LEDS_Y-1))
+        x = LEDS_X - 2;
+      else if (x == 0 && (z == 1 || z == LEDS_Y-2))
+        x = 1;
+      else if (x <= 1 && (z == 0 || z == LEDS_Y-1))
+        x = 2;
+    }
+    else if (plane/2 == 0)
+    {
+      if (z == 0 && (x == 1 || x == LEDS_X -1))
+        z = 1;
+      else if (z == LEDS_Y-1 && (x == 1 || x == LEDS_X -1))
+        z = LEDS_Y-2;
+      else if (x == 0 && z < 2)
+        z = 2;
+      else if (x == 0 && z > LEDS_Y-2)
+        z = LEDS_Y-2;
+    }
+
+    if (x >= 0 && x < LEDS_X && z >= 0 && z < LEDS_Y &&
+        y >= 0 && y < LEDS_TANG)
+      setpix(f, x, (LEDS_Y-1)-z, y, col*15, col*15, col*15);
+  }
+
+  return 0;
+}
+
+
 int
 main(int argc, char *argv[])
 {
   uint32_t n;
   frame_t frame;
+  static union anim_data private_data;
 
   for (n = 0; n < 5000; ++n)
   {
@@ -932,10 +1263,16 @@ main(int argc, char *argv[])
       break;
     case 7:
     {
-      static union anim_data private_data;
       if (n == 0)
         in_fireworks(NULL, &private_data);
       an_fireworks(&frame, n, &private_data);
+      break;
+    }
+    case 8:
+    {
+      if (n == 0)
+        in_migrating_dots(NULL, &private_data);
+      an_migrating_dots(&frame, n, &private_data);
       break;
     }
     default:
