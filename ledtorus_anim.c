@@ -1136,7 +1136,7 @@ an_migrating_dots(frame_t *f, uint32_t frame, union anim_data *data)
           if (c->start_plane == 1)
             c->dots[idx].v = 0;
           else if (c->start_plane == 0)
-            c->dots[idx].v = 1.4f + v_range;
+            c->dots[idx].v = 1.4f + drand(v_range);
           else
             c->dots[idx].v = (1-2*(c->start_plane%2)) * (v_min + drand(v_range));
           ++idx;
@@ -1176,7 +1176,7 @@ an_migrating_dots(frame_t *f, uint32_t frame, union anim_data *data)
     else
     {
       ++moving;
-      if (plane <= 1)
+      if (plane <= 1 && (c->dots[i].v <= 0.0f || c->dots[i].v + grav > 0.02f))
         c->dots[i].v += grav;
     }
   }
