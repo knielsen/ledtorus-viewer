@@ -920,16 +920,15 @@ an_fireworks(frame_t *f, uint32_t frame, union anim_data *data)
 
 
 static const int migrating_dots_col1 = 15;
-static const int migrating_dots_col2 = 9;
+static const int migrating_dots_col2 = 1;
 
 static int
 ut_migrating_dots_get_colour(struct st_migrating_dots *c, int idx,
-                             const char *glyph, int glyph_width)
+                             const char glyph)
 {
-#if 1   /* ToDo */
-  return migrating_dots_col1;
-#else
-  if (!glyph)
+  static const int glyph_width = 8;
+  static const int glyph_height = 8;
+  if (glyph < 32 || glyph > 127)
     return migrating_dots_col1;
   int x, y;
   switch(c->end_plane)
@@ -971,8 +970,7 @@ ut_migrating_dots_get_colour(struct st_migrating_dots *c, int idx,
       y = (MIG_SIDE-1) - c->dots[idx].z;
     }
     break;
-  case 4:
-  case 5:
+  default:  /* case 4 and 5 */
     if (c->start_plane/2 == 0)
     {
       x = c->dots[idx].x;
@@ -986,15 +984,14 @@ ut_migrating_dots_get_colour(struct st_migrating_dots *c, int idx,
     break;
   }
   x = x - (MIG_SIDE-glyph_width)/2;
-  y = y - (MIG_SIDE-9)/2;
+  y = y - (MIG_SIDE-glyph_height)/2;
   int col;
-  if (x < 0 || x >= glyph_width || y < 0 || y >= 9 ||
-        glyph[x + glyph_width*y] == ' ')
+  if (x < 0 || x >= glyph_width || y < 0 || y >= glyph_height ||
+      !(tonc_font[8*(glyph-32)+y] & (1<<x)))
     col = migrating_dots_col1;
   else
     col = migrating_dots_col2;
   return col;
-#endif
 }
 
 
@@ -1007,7 +1004,7 @@ in_migrating_dots(const struct ledtorus_anim *self, union anim_data *data)
   c->end_plane = 1;         /* Top; we will copy this to start_plane below. */
   c->wait = 1000000;        /* Will trigger start of new round. */
   c->stage1 = 0;            /* Pretend that we are at the end of stage2. */
-  c->text_idx = -5;
+  c->text_idx = -3;
   for (i = 0; i < MIG_SIDE*MIG_SIDE; ++i)
     c->dots[i].new_col = migrating_dots_col1;
 
@@ -1022,7 +1019,7 @@ an_migrating_dots(frame_t *f, uint32_t frame, union anim_data *data)
   static const float v_min = 0.9f;
   static const float v_range = 1.2f;
   static const float grav = -0.07f;
-  static const int stage_pause = 8;
+  static const int stage_pause = 27;
   static const char *text = "LABITAT";
   uint32_t i, j;
 
@@ -1064,11 +1061,10 @@ an_migrating_dots(frame_t *f, uint32_t frame, union anim_data *data)
         c->end_plane = irand(6);
       while ((c->end_plane/2) == (c->start_plane/2));
 
-      const char *glyph = c->text_idx >= 0 ? 0/* ToDo font9[text[c->text_idx]]*/ : NULL;
+      const char glyph = c->text_idx >= 0 ? text[c->text_idx] : 0;
       ++c->text_idx;
-      if (c->text_idx >= strlen(text))
-        c->text_idx = -1;           /* -1 => One blank before we start over */
-      int glyph_width = glyph ? strlen(glyph)/9 : 0;
+      if (c->text_idx >= (int)(strlen(text)))
+        c->text_idx = -3;
 
       int idx = 0;
       for (i = 0; i < MIG_SIDE; ++i)
@@ -1131,8 +1127,7 @@ an_migrating_dots(frame_t *f, uint32_t frame, union anim_data *data)
           }
           c->dots[idx].delay = irand(start_spread);
           c->dots[idx].col = c->dots[idx].new_col;
-          c->dots[idx].new_col =
-            ut_migrating_dots_get_colour(c, idx, glyph, glyph_width);
+          c->dots[idx].new_col = ut_migrating_dots_get_colour(c, idx, glyph);
           if (c->start_plane == 1)
             c->dots[idx].v = 0;
           else if (c->start_plane == 0)
