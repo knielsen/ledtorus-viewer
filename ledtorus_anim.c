@@ -1019,9 +1019,9 @@ static uint32_t
 an_migrating_dots(frame_t *f, uint32_t frame, union anim_data *data)
 {
   static const int start_spread = 12;
-  static const float v_min = 0.9;
-  static const float v_range = 1.2;
-  static const float grav = -0.07;
+  static const float v_min = 0.9f;
+  static const float v_range = 1.2f;
+  static const float grav = -0.07f;
   static const int stage_pause = 8;
   static const char *text = "LABITAT";
   uint32_t i, j;
@@ -1043,7 +1043,7 @@ an_migrating_dots(frame_t *f, uint32_t frame, union anim_data *data)
         if (c->end_plane == 0)
           c->dots[i].v = 0;
         else if (c->end_plane == 1)
-          c->dots[i].v = 2 + drand(v_range);
+          c->dots[i].v = 1.4f + drand(v_range);
         else
           c->dots[i].v = (2*(c->end_plane%2)-1) * (v_min + drand(v_range));
         c->dots[i].target = (MIG_SIDE-1)*(c->end_plane%2);
@@ -1136,7 +1136,7 @@ an_migrating_dots(frame_t *f, uint32_t frame, union anim_data *data)
           if (c->start_plane == 1)
             c->dots[idx].v = 0;
           else if (c->start_plane == 0)
-            c->dots[idx].v = 2 + v_range;
+            c->dots[idx].v = 1.4f + v_range;
           else
             c->dots[idx].v = (1-2*(c->start_plane%2)) * (v_min + drand(v_range));
           ++idx;
@@ -1187,9 +1187,10 @@ an_migrating_dots(frame_t *f, uint32_t frame, union anim_data *data)
   cls(f);
   for (i = 0; i < MIG_SIDE*MIG_SIDE; ++i)
   {
-    int x = round(c->dots[i].x);
-    int y = round(c->dots[i].y*tang_factor);
-    int z = round(c->dots[i].z);
+    float x = c->dots[i].x;
+    float y = c->dots[i].y*tang_factor;
+    float z = c->dots[i].z;
+    int ix, iy, iz;
     int col;
     if (c->stage1)
       col = c->dots[i].col;
@@ -1199,30 +1200,62 @@ an_migrating_dots(frame_t *f, uint32_t frame, union anim_data *data)
       col = c->dots[i].new_col;
     if (plane/2 == 1)
     {
-      if (x >= LEDS_X)
-        x = LEDS_X - 1;
-      if (x == LEDS_X - 1 && (z == 0 || z == LEDS_Y-1))
-        x = LEDS_X - 2;
-      else if (x == 0 && (z == 1 || z == LEDS_Y-2))
-        x = 1;
-      else if (x <= 1 && (z == 0 || z == LEDS_Y-1))
-        x = 2;
+      if (x > (float)(LEDS_X-2) && (z < 1.0f || z > (float)(LEDS_Y-2)))
+        x = (float)(LEDS_X-2);
+      else if (x > (float)(LEDS_X-1))
+        x = (float)(LEDS_X-1);
+      else if (x < 2.0f && (z < 1.0f || z > (float)(LEDS_Y-2)))
+        x = 2.0f;
+      else if (x < 1.0f && (z < 2.0f || z > (float)(LEDS_Y-3)))
+        x = 1.0f;
     }
     else if (plane/2 == 0)
     {
-      if (z == 0 && (x == 1 || x == LEDS_X -1))
-        z = 1;
-      else if (z == LEDS_Y-1 && (x == 1 || x == LEDS_X -1))
-        z = LEDS_Y-2;
-      else if (x == 0 && z < 2)
-        z = 2;
-      else if (x == 0 && z > LEDS_Y-2)
-        z = LEDS_Y-2;
+      if (z < 2.0f && x < 1.0f)
+        z = 2.0f;
+      else if (z < 1.0f && (x < 2.0f || x > (float)(LEDS_X-2)))
+        z = 1.0f;
+      else if (z > (float)(LEDS_Y-3) && x < 1.0f)
+        z = (float)LEDS_Y-3;
+      else if (z > (float)(LEDS_Y-2) && (x < 2.0f || x > (float)(LEDS_X-2)))
+        z = (float)(LEDS_Y-2);
     }
 
-    if (x >= 0 && x < LEDS_X && z >= 0 && z < LEDS_Y &&
-        y >= 0 && y < LEDS_TANG)
-      setpix(f, x, (LEDS_Y-1)-z, y, col*15, col*15, col*15);
+    float x1, x2, y1, y2, z1, z2, in1, in2;
+    switch (plane/2)
+    {
+    case 0:
+      x1 = x2 = roundf(x);
+      y1 = y2 = roundf(y);
+      z1 = floorf(z);
+      z2 = ceilf(z);
+      in1 = z2 - z;
+      break;
+    case 1:
+      x1 = floorf(x);
+      x2 = ceilf(x);
+      y1 = y2 = roundf(y);
+      z1 = z2 = roundf(z);
+      in1 = x2 - x;
+      break;
+    default:  /* case 2 */
+      x1 = x2 = roundf(x);
+      y1 = floorf(y);
+      y2 = ceilf(y);
+      z1 = z2 = roundf(z);
+      in1 = y2 - y;
+      break;
+    }
+    in2 = 1.0f - in1;
+
+    ix = x1; iy = y1; iz = (LEDS_Y-1) - z1;
+    if (ix >= 0 && ix < LEDS_X && iz >= 0 && iz < LEDS_Y &&
+        iy >= 0 && iy < LEDS_TANG)
+      setpix(f, ix, iz, iy, roundf(in1*col*15), roundf(in1*col*15), roundf(in1*col*15));
+    ix = x2; iy = y2; iz = (LEDS_Y-1) - z2;
+    if (ix >= 0 && ix < LEDS_X && iz >= 0 && iz < LEDS_Y &&
+        iy >= 0 && iy < LEDS_TANG)
+      setpix(f, ix, iz, iy, roundf(in2*col*15), roundf(in2*col*15), roundf(in2*col*15));
   }
 
   return 0;
