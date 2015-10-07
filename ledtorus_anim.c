@@ -92,7 +92,7 @@ union anim_data {
     int wait;
     int stage1;
     int text_idx;
-  } migrating_dots;
+  } migrating_dots[3];
 };
 
 struct ledtorus_anim;
@@ -995,18 +995,22 @@ ut_migrating_dots_get_colour(struct st_migrating_dots *c, int idx,
 static uint32_t
 in_migrating_dots(const struct ledtorus_anim *self, union anim_data *data)
 {
-  struct st_migrating_dots *c = &data->migrating_dots;
-  uint32_t i;
+  struct st_migrating_dots *c = &data->migrating_dots[0];
+  uint32_t i, j;
 
-  c->end_plane = 1;         /* Top; we will copy this to start_plane below. */
-  c->wait = 1000000;        /* Will trigger start of new round. */
-  c->stage1 = 0;            /* Pretend that we are at the end of stage2. */
-  c->text_idx = -3;
-  for (i = 0; i < MIG_SIDE*MIG_SIDE; ++i)
+  for (j = 0; j < 3; ++j)
   {
-    c->dots[i].new_hue = 0.0f;
-    c->dots[i].new_sat = 0.0f;
-    c->dots[i].new_val = 1.0f;
+    c->end_plane = 1;         /* Top; we will copy this to start_plane below. */
+    c->wait = 1000000;        /* Will trigger start of new round. */
+    c->stage1 = 0;            /* Pretend that we are at the end of stage2. */
+    c->text_idx = -3;
+    for (i = 0; i < MIG_SIDE*MIG_SIDE; ++i)
+    {
+      c->dots[i].new_hue = 0.0f;
+      c->dots[i].new_sat = 0.0f;
+      c->dots[i].new_val = 1.0f;
+    }
+    ++c;
   }
 
   return 0;
@@ -1025,10 +1029,14 @@ an_migrating_dots(frame_t *f, uint32_t frame, union anim_data *data)
   static const char *text = "LABITAT";
   uint32_t i, j;
   int stage_pause;
+  uint32_t section = 0;
 
-  struct st_migrating_dots *c = &data->migrating_dots;
+  struct st_migrating_dots *c = &data->migrating_dots[0];
+  cls(f);
 
-  stage_pause = c->stage1 ? stage1_pause : stage2_pause;
+next_section:
+
+  stage_pause = section + (c->stage1 ? stage1_pause : stage2_pause);
   if (c->wait > stage_pause)
   {
     c->base_frame = frame;
@@ -1072,9 +1080,11 @@ an_migrating_dots(frame_t *f, uint32_t frame, union anim_data *data)
         c->text_idx = -3;
 
       /* Choose colour. */
-      float light_hue = (float)(frame % 1024) * (1.0f/1024.0f);
-      float dark_hue = (float)((frame + 180) % 1024) * (1.0f/1024);
-      float light_sat = 0.5f + (float)(frame % 793) * (0.5f/793.0f);
+      uint32_t shifted_frame1 = frame + section*(1024/3);
+      uint32_t shifted_frame2 = frame + section*(793/3);
+      float light_hue = (float)(shifted_frame1 % 1024) * (1.0f/1024.0f);
+      float dark_hue = (float)((shifted_frame1 + 180) % 1024) * (1.0f/1024);
+      float light_sat = 0.5f + (float)(shifted_frame2 % 793) * (0.5f/793.0f);
       float dark_sat = light_sat;
       const float light_val = 1.0f;
       const float dark_val = 0.6f;
@@ -1208,7 +1218,7 @@ an_migrating_dots(frame_t *f, uint32_t frame, union anim_data *data)
     ++c->wait;
 
   /* Draw the lot. */
-  cls(f);
+  int y_shift = (LEDS_TANG/3)*section;
   for (i = 0; i < MIG_SIDE*MIG_SIDE; ++i)
   {
     float x = c->dots[i].x;
@@ -1286,16 +1296,21 @@ an_migrating_dots(frame_t *f, uint32_t frame, union anim_data *data)
     in2 = 1.0f - in1;
 
     struct colour3 rgb = hsv2rgb_f(hue, sat, in1*val);
-    ix = x1; iy = y1; iz = (LEDS_Y-1) - z1;
+    ix = x1; iy = y1 + y_shift; iz = (LEDS_Y-1) - z1;
     if (ix >= 0 && ix < LEDS_X && iz >= 0 && iz < LEDS_Y &&
         iy >= 0 && iy < LEDS_TANG)
       setpix(f, ix, iz, iy, rgb.r, rgb.g, rgb.b);
     rgb = hsv2rgb_f(hue, sat, in2*val);
-    ix = x2; iy = y2; iz = (LEDS_Y-1) - z2;
+    ix = x2; iy = y2 + y_shift; iz = (LEDS_Y-1) - z2;
     if (ix >= 0 && ix < LEDS_X && iz >= 0 && iz < LEDS_Y &&
         iy >= 0 && iy < LEDS_TANG)
       setpix(f, ix, iz, iy, rgb.r, rgb.g, rgb.b);
   }
+
+  ++c;
+  ++section;
+  if (section < 3)
+    goto next_section;
 
   return 0;
 }
