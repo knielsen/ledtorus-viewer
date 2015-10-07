@@ -95,6 +95,8 @@ union anim_data {
   } migrating_dots;
 };
 
+struct ledtorus_anim;
+
 
 /*
   Compute rectangular coordinates in the horizontal plane, taking into account
@@ -922,14 +924,14 @@ an_fireworks(frame_t *f, uint32_t frame, union anim_data *data)
 static const int migrating_dots_col1 = 15;
 static const int migrating_dots_col2 = 1;
 
-static int
+static uint32_t
 ut_migrating_dots_get_colour(struct st_migrating_dots *c, int idx,
                              const char glyph)
 {
   static const int glyph_width = 8;
   static const int glyph_height = 8;
   if (glyph < 32 || glyph > 127)
-    return migrating_dots_col1;
+    return 0;
   int x, y;
   switch(c->end_plane)
   {
@@ -985,13 +987,11 @@ ut_migrating_dots_get_colour(struct st_migrating_dots *c, int idx,
   }
   x = x - (MIG_SIDE-glyph_width)/2;
   y = y - (MIG_SIDE-glyph_height)/2;
-  int col;
   if (x < 0 || x >= glyph_width || y < 0 || y >= glyph_height ||
       !(tonc_font[8*(glyph-32)+y] & (1<<x)))
-    col = migrating_dots_col1;
+    return 0;
   else
-    col = migrating_dots_col2;
-  return col;
+    return 1;
 }
 
 
@@ -1019,12 +1019,15 @@ an_migrating_dots(frame_t *f, uint32_t frame, union anim_data *data)
   static const float v_min = 0.9f;
   static const float v_range = 1.2f;
   static const float grav = -0.07f;
-  static const int stage_pause = 27;
+  static const int stage1_pause = 8;
+  static const int stage2_pause = 27;
   static const char *text = "LABITAT";
   uint32_t i, j;
+  int stage_pause;
 
   struct st_migrating_dots *c = &data->migrating_dots;
 
+  stage_pause = c->stage1 ? stage1_pause : stage2_pause;
   if (c->wait > stage_pause)
   {
     c->base_frame = frame;
@@ -1127,7 +1130,7 @@ an_migrating_dots(frame_t *f, uint32_t frame, union anim_data *data)
           }
           c->dots[idx].delay = irand(start_spread);
           c->dots[idx].col = c->dots[idx].new_col;
-          c->dots[idx].new_col = ut_migrating_dots_get_colour(c, idx, glyph);
+          c->dots[idx].new_col = ut_migrating_dots_get_colour(c, idx, glyph) ? migrating_dots_col2 : migrating_dots_col1;
           if (c->start_plane == 1)
             c->dots[idx].v = 0;
           else if (c->start_plane == 0)
