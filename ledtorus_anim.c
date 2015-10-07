@@ -87,10 +87,10 @@ union anim_data {
       int target, delay;
     } dots[MIG_SIDE*MIG_SIDE];
     /* 0/1 is bottom/top, 2/3 is left/right, 4/5 is front/back. */
-    int start_plane, end_plane;
-    int base_frame;
-    int wait;
-    int stage1;
+    int32_t start_plane, end_plane;
+    uint32_t base_frame;
+    uint32_t wait;
+    uint32_t stage1;
     int text_idx;
   } migrating_dots[3];
 };
@@ -459,7 +459,8 @@ an_test(frame_t *f, uint32_t c, void *st __attribute__((unused)))
 
 
 static void
-an_test2(frame_t *f, uint32_t c, void *st __attribute__((unused)))
+an_test2(frame_t *f, uint32_t c __attribute__((unused)),
+         void *st __attribute__((unused)))
 {
   uint32_t x, y, a;
 
@@ -750,7 +751,8 @@ ut_fireworks_setpix(frame_t *f, float xf, float yf, float zf, struct hsv3 col)
 
 
 static uint32_t
-in_fireworks(const struct ledtorus_anim *self, union anim_data *data)
+in_fireworks(const struct ledtorus_anim *self __attribute__((unused)),
+             union anim_data *data)
 {
   struct st_fireworks *c = &data->fireworks;
   c->num_phase1 = 0;
@@ -993,7 +995,8 @@ ut_migrating_dots_get_colour(struct st_migrating_dots *c, int idx,
 
 
 static uint32_t
-in_migrating_dots(const struct ledtorus_anim *self, union anim_data *data)
+in_migrating_dots(const struct ledtorus_anim *self __attribute__((unused)),
+                  union anim_data *data)
 {
   struct st_migrating_dots *c = &data->migrating_dots[0];
   uint32_t i, j;
@@ -1028,7 +1031,7 @@ an_migrating_dots(frame_t *f, uint32_t frame, union anim_data *data)
   static const int stage2_pause = 23;
   static const char *text = "LABITAT";
   uint32_t i, j;
-  int stage_pause;
+  uint32_t stage_pause;
   uint32_t section = 0;
 
   struct st_migrating_dots *c = &data->migrating_dots[0];
@@ -1169,14 +1172,15 @@ next_section:
           else if (c->start_plane == 0)
             c->dots[idx].v = 1.4f + drand(v_range);
           else
-            c->dots[idx].v = (1-2*(c->start_plane%2)) * (v_min + drand(v_range));
+            c->dots[idx].v =
+              (1.0f-(float)(2*(c->start_plane%2))) * (v_min + drand(v_range));
           ++idx;
         }
       }
     }
   }
 
-  int plane = c->stage1 ? c->start_plane : c->end_plane;
+  uint32_t plane = c->stage1 ? c->start_plane : c->end_plane;
   int d = frame - c->base_frame;
   int moving = 0;
   for (i = 0; i < MIG_SIDE*MIG_SIDE; ++i)
@@ -1196,7 +1200,7 @@ next_section:
     case 2: case 3:
       m = &c->dots[i].x;
       break;
-    case 4: case 5:
+    default:  /* case 4: case 5: */
       m = &c->dots[i].y;
       break;
     }
