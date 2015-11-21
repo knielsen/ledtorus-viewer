@@ -1320,6 +1320,74 @@ next_section:
 }
 
 
+static void
+ut_sphere(frame_t *f, float x, float y, float a, float r, struct colour3 col)
+{
+  float x0 = floorf(x - r);
+  float x1 = ceilf(x + r);
+  float y0 = floorf(y - r);
+  float y1 = ceilf(y + r);
+  float a0 = floorf(a - r*tang_factor);
+  float a1 = ceilf(a + r*tang_factor);
+  float xi0, xi, xi1, yi0, yi, yi1, ai0, ai, ai1;
+  float r0_2 = (r-0.5f)*(r-0.5f);
+  float r1_2 = (r+0.5f)*(r+0.5f);
+  float r1 = sqrtf(r1_2);
+
+  xi0 =  x0 < 0.0f ? 0.0f : x0;
+  xi1 = x1 > (float)(LEDS_X-1) ? (float)(LEDS_X-1) : x1;
+  yi0 = y0 < 0.0f ? 0.0f : y0;
+  yi1 = y1 > (float)(LEDS_Y-1) ? (float)(LEDS_Y-1) : y1;
+  ai0 = a0;// < 0.0f ? a0 + (float)LEDS_TANG : a0;
+  ai1 = a1;// > (float)(LEDS_TANG-1) ? a1 - (float)LEDS_TANG : a1;
+
+  for (xi = xi0; xi <= xi1; ++xi)
+  {
+    for (yi = yi0; yi <= yi1; ++yi)
+    {
+      for (ai = ai0; ai <= ai1; ai+=4)
+      {
+        float a_adj = ai < 0.0f ? ai+LEDS_TANG : (ai > LEDS_TANG-1 ? ai - LEDS_TANG : ai);
+        float dx = x - xi;
+        float dy = y - yi;
+        float da = (a - a_adj)/tang_factor;
+        float d2 = dx*dx + dy*dy + da*da;
+        if (d2 < r0_2)
+          setpix(f, xi, yi, a_adj, col.r, col.g, col.b);
+        else if (d2 < r1_2)
+        {
+          float diff = r1 - sqrt(d2);
+          setpix(f, xi, yi, a_adj, col.r*diff, col.g*diff, col.b*diff);
+        }
+      }
+    }
+  }
+}
+
+
+static uint32_t
+in_spheretest(const struct ledtorus_anim *self __attribute__((unused)),
+              union anim_data *data)
+{
+  return 0;
+}
+
+
+static uint32_t
+an_spheretest(frame_t *f, uint32_t frame,
+              union anim_data *data __attribute__((unused)))
+{
+  float r, y, a;
+
+  cls(f);
+  r = 0.8f + fabsf((float)(frame % 256) - 127.5f)*(1.85f/127.5f);
+  a = (3*frame) % LEDS_TANG;
+  y = (float)LEDS_Y/2.0f + 2.7f*sinf((float)(frame %165)*(2.0f*F_PI/165.0f));
+  ut_sphere(f, 3, y, a, r, hsv2rgb_f(0.33f, 1.0f, 1.0f));
+  return 0;
+}
+
+
 int
 main(int argc, char *argv[])
 {
@@ -1364,6 +1432,13 @@ main(int argc, char *argv[])
       if (n == 0)
         in_migrating_dots(NULL, &private_data);
       an_migrating_dots(&frame, n, &private_data);
+      break;
+    }
+    case 9:
+    {
+      if (n == 0)
+        in_spheretest(NULL, &private_data);
+      an_spheretest(&frame, n, &private_data);
       break;
     }
     default:
