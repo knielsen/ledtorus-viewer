@@ -797,7 +797,7 @@ an_fireworks(frame_t *f, uint32_t frame, union anim_data *data)
     c->p1[i].vx = drand(0.35f) - 0.175f;
     c->p1[i].vy = drand(0.35f/tang_factor) - 0.175f/tang_factor;
     c->p1[i].s = min_height + drand(max_height - min_height);
-    c->p1[i].vz = sqrt(2*g*c->p1[i].s);
+    c->p1[i].vz = sqrtf(2*g*c->p1[i].s);
     c->p1[i].col = mk_hsv3_f(0.8f, 0.0f, 0.5f);
     c->p1[i].base_frame = frame;
     c->p1[i].delay = min_start_delay + irand(max_start_delay - min_start_delay);
@@ -1356,7 +1356,7 @@ ut_sphere(frame_t *f, float x, float y, float a, float r, struct colour3 col)
           setpix(f, xi, yi, a_adj, col.r, col.g, col.b);
         else if (d2 < r1_2)
         {
-          float diff = r1 - sqrt(d2);
+          float diff = r1 - sqrtf(d2);
           setpix(f, xi, yi, a_adj, col.r*diff, col.g*diff, col.b*diff);
         }
       }
