@@ -1388,6 +1388,99 @@ an_spheretest(frame_t *f, uint32_t frame,
 }
 
 
+/*
+  Distance from point (x,y,z) to plane with normal (nx,ny,nz) and passing
+  through the point (x0,y0,z0). The normal should be of unit length.
+
+  Returns the signed distance, which is positive if the point is on the side
+  of the plane pointed to by the normal.
+*/
+static float
+dist_point_plane(float x, float y, float z,
+                 float nx, float ny, float nz,
+                 float x0, float y0, float z0)
+{
+  float dx = x - x0;
+  float dy = y - y0;
+  float dz = z - z0;
+  return nx*dx + ny*dy + nz*dz;
+}
+
+
+static uint32_t
+an_planetest(frame_t *f, uint32_t frame,
+             union anim_data *data __attribute__((unused)))
+{
+  static const float thick = 0.23f;
+  uint32_t i, j, k;
+  float x, y, z;
+  float dist;
+  float nx = 3, ny = 8, nz = 1;
+  float norm = sqrtf(nx*nx + ny*ny + nz*nz);
+
+  nx /= norm; ny /= norm; nz /= norm;
+
+  cls(f);
+  for (k = 0; k < LEDS_TANG; ++k)
+  {
+    for (i = 0; i < LEDS_X; ++i)
+    {
+      struct torus_xz rect_xz;
+
+      rect_xz = torus_polar2rect((float)i, (float)k);
+      x = rect_xz.x;
+      z = rect_xz.z;
+      for (j = 0; j < LEDS_Y; ++j)
+      {
+        y = j;
+
+        dist = dist_point_plane(x, y, z,
+                                nx, ny, nz,
+                                0, 3, 0);
+        if (fabsf(dist) > -thick && fabsf(dist) < thick)
+        {
+          struct colour3 col = hsv2rgb_f(0.0f, 0.0f, 1.0f-(1.0f/thick)*fabs(dist));
+          setpix(f, i, j, k, col.r, col.g, col.b);
+        }
+      }
+    }
+  }
+
+  return 0;
+}
+
+
+static uint32_t
+an_testimg1(frame_t *f, uint32_t frame,
+            union anim_data *data __attribute__((unused)))
+{
+  uint32_t i, j, k;
+  struct colour3 col;
+
+  cls(f);
+  for (k = 0; k < LEDS_TANG; ++k)
+  {
+    for (i = 0; i < LEDS_X; ++i)
+    {
+      for (j = 0; j < LEDS_Y; ++j)
+      {
+        float dummy;
+        float hue, sat, val;
+
+        hue = modff((float)frame/(25.0f*13.0f), &dummy);
+        sat = 1 - powf(modff((float)frame/(25.0f*29.0f), &dummy), 2.3f);
+        sat = 0.5f + fabsf(sat-0.5f);
+        val = (float)k/((float)LEDS_TANG/1.08f);
+        if (val > 1.0f)
+          val = 0.0f;
+        col = hsv2rgb_f(hue, sat, val);
+        setpix(f, i, j, k, col.r, col.g, col.b);
+      }
+    }
+  }
+
+  return 0;
+}
 int
 main(int argc, char *argv[])
 {
@@ -1439,6 +1532,16 @@ main(int argc, char *argv[])
       if (n == 0)
         in_spheretest(NULL, &private_data);
       an_spheretest(&frame, n, &private_data);
+      break;
+    }
+    case 10:
+    {
+      an_planetest(&frame, n, &private_data);
+      break;
+    }
+    case 11:
+    {
+      an_testimg1(&frame, n, &private_data);
       break;
     }
     default:
