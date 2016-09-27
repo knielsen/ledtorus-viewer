@@ -2,23 +2,17 @@
   gcc -Wall ledtorus_anim.c simplex_noise.c colours.c -o ledtorus_anim -lm
 */
 
-#include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
 #include <math.h>
 #include <unistd.h>
 
+#include "ledtorus_anim.h"
+#include "rubberduck.h"
 #include "simplex_noise.h"
 #include "colours.h"
 
-
-#define LEDS_X 7
-#define LEDS_Y 8
-#define LEDS_TANG 205
-typedef uint8_t frame_t[LEDS_Y*LEDS_X*LEDS_TANG][3];
-
-#define F_PI 3.141592654f
 
 /*
    A factor to compensate that pixels are much smaller in the tangential
@@ -93,6 +87,8 @@ union anim_data {
     uint32_t stage1;
     int text_idx;
   } migrating_dots[3];
+
+  struct st_rubberduck rubberduck;
 };
 
 struct ledtorus_anim;
@@ -1481,6 +1477,25 @@ an_testimg1(frame_t *f, uint32_t frame,
 
   return 0;
 }
+
+
+static uint32_t
+in_rubberduck(const struct ledtorus_anim *self __attribute__((unused)),
+              union anim_data *data)
+{
+  struct st_rubberduck *c = &data->rubberduck;
+  return rubberduck_init(c);
+}
+
+
+static uint32_t
+an_rubberduck(frame_t *f, uint32_t frame, union anim_data *data)
+{
+  struct st_rubberduck *c = &data->rubberduck;
+  return rubberduck_anim_frame(f, frame, c);
+}
+
+
 int
 main(int argc, char *argv[])
 {
@@ -1542,6 +1557,13 @@ main(int argc, char *argv[])
     case 11:
     {
       an_testimg1(&frame, n, &private_data);
+      break;
+    }
+    case 12:
+    {
+      if (n == 0)
+        in_rubberduck(NULL, &private_data);
+      an_rubberduck(&frame, n, &private_data);
       break;
     }
     default:
