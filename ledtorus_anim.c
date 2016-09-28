@@ -46,8 +46,6 @@ static inline struct hsv3 mk_hsv3_f(float h, float s, float v)
   return res;
 }
 
-struct torus_xz { float x, z; };
-
 
 /* Number of migrating dots along one side of the migrating plane. */
 #define MIG_SIDE LEDS_Y
@@ -98,7 +96,7 @@ struct ledtorus_anim;
   Compute rectangular coordinates in the horizontal plane, taking into account
   the offset of the innermost LEDs from the center.
 */
-static struct torus_xz torus_polar2rect(float x, float a)
+struct torus_xz torus_polar2rect(float x, float a)
 {
   struct torus_xz res;
   float angle = a * (F_PI*2.0f/(float)LEDS_TANG);
@@ -138,17 +136,6 @@ vrand(float a, float *x, float *y, float *z)
   *x = a*r*cosf(v);
   *y = a*r*sinf(v);
   *z = a*u;
-}
-
-
-static inline void
-setpix(frame_t *f, uint32_t x, uint32_t y, uint32_t a,
-       uint8_t r, uint8_t g, uint8_t b)
-{
-  uint8_t *p = (*f)[y+x*LEDS_Y+a*(LEDS_Y*LEDS_X)];
-  p[0] = r;
-  p[1] = g;
-  p[2] = b;
 }
 
 
@@ -206,7 +193,7 @@ hsv2rgb_f(float h, float s, float v)
 }
 
 
-static void
+void
 cls(frame_t *f)
 {
   memset(f, 0, sizeof(frame_t));
@@ -367,7 +354,7 @@ g_text(frame_t *f, const char *text, uint32_t x, uint32_t a,
 }
 
 
-static void
+void
 envelope(frame_t *f, uint32_t c)
 {
   uint32_t a, i;

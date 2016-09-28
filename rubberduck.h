@@ -1,6 +1,7 @@
 #include "ledtorus_anim.h"
 
 struct st_rubberduck {
+  float density[LEDS_X][LEDS_Y][LEDS_TANG];
   float *points;
   int num_points;
 };
