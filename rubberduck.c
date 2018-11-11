@@ -229,6 +229,10 @@ rubberduck_anim_frame(frame_t *f, uint32_t frame, struct st_rubberduck *c)
     for (ia = 0; ia < LEDS_TANG; ++ia) {
       for (iy = 0; iy < LEDS_Y; ++iy) {
         float density = c->density[ix][iy][ia] * max_density;
+        if (density >= 1.0f/3.0f)
+          density = 1.0f;
+        else
+          density *= 3.0f;
         if (density > 0.01) {
           float cr = 1.0f*density;
           float cg = 1.0f*density;
