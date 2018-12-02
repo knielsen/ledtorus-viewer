@@ -46,9 +46,29 @@
 #include "window.h"
 #include "io.h"
 #include "ledtorus.h"
+
+#include <stdlib.h>
+#include <stdio.h>
+
+int ledtorus_ver = 1;
+
 int main(int argc, char *argv[])
 {
     QApplication app(argc, argv);
+
+    for (int i = 1; i < argc; ++i) {
+      if (0==strcmp(argv[i], "-1"))
+        ledtorus_ver = 1;
+      else if (0==strcmp(argv[i], "-2"))
+        ledtorus_ver = 2;
+      else if (0==strcmp(argv[i], "-h") || 0==strcmp(argv[i], "--help")) {
+        fprintf(stderr, "Usage: %s [-1] [-2] [-h|--help]\n", argv[0]);
+        exit(1);
+      } else {
+        fprintf(stderr, "Invalid argument '%s' (%0 -h for usage)\n", argv[i], argv[0]);
+        exit(1);
+      }
+    }
     Window window;
     window.resize(window.sizeHint());
     int desktopArea = QApplication::desktop()->width() *
