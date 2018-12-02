@@ -51,24 +51,37 @@
 #include <stdio.h>
 
 int ledtorus_ver = 1;
+unsigned LEDS_X = 7;
+unsigned LEDS_Y = 8;
+unsigned LEDS_TANG = 205;
+
 
 int main(int argc, char *argv[])
 {
     QApplication app(argc, argv);
 
     for (int i = 1; i < argc; ++i) {
-      if (0==strcmp(argv[i], "-1"))
+      if (0==strcmp(argv[i], "-1")) {
         ledtorus_ver = 1;
-      else if (0==strcmp(argv[i], "-2"))
+        LEDS_X = 7;
+        LEDS_Y = 8;
+        LEDS_TANG = 205;
+      } else if (0==strcmp(argv[i], "-2")) {
         ledtorus_ver = 2;
-      else if (0==strcmp(argv[i], "-h") || 0==strcmp(argv[i], "--help")) {
+        LEDS_X = 14;
+        LEDS_Y = 16;
+        LEDS_TANG = 205;
+      } else if (0==strcmp(argv[i], "-h") || 0==strcmp(argv[i], "--help")) {
         fprintf(stderr, "Usage: %s [-1] [-2] [-h|--help]\n", argv[0]);
         exit(1);
       } else {
-        fprintf(stderr, "Invalid argument '%s' (%0 -h for usage)\n", argv[i], argv[0]);
+        fprintf(stderr, "Invalid argument '%s' (%s -h for usage)\n", argv[i], argv[0]);
         exit(1);
       }
     }
+
+    start_io_threads();
+
     Window window;
     window.resize(window.sizeHint());
     int desktopArea = QApplication::desktop()->width() *
@@ -78,8 +91,6 @@ int main(int argc, char *argv[])
         window.show();
     else
         window.showMaximized();
-
-    start_io_threads();
 
     return app.exec();
 }

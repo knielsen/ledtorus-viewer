@@ -1,9 +1,5 @@
 #include <stdint.h>
 
-#define LEDS_X 7
-#define LEDS_Y 8
-#define LEDS_TANG 205
-
 
 #define FRAMERATE 25
 

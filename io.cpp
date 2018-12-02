@@ -8,6 +8,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#include "ledtorus.h"
 #include "io.h"
 
 #define FRAMES 4
@@ -20,7 +21,7 @@
    - We pick the next frame, and send that back.
    - When we send back a frame to the gui, we can wake up the reader thread
      to let it store another frame.
-   - This way, the gui thread never has to wait (except fr very short-lived
+   - This way, the gui thread never has to wait (except for very short-lived
      mutex protecting the fifo).
    - We just return pointers into the fifo
    - If we have no more frames, we can return the last frame we have. Then
@@ -35,7 +36,7 @@
 static int num_ready_frames= 0;
 static int first_free_frame= 0;
 static int last_free_frame= FRAMES-1;
-uint8_t frames[FRAMES][3*LEDS_X*LEDS_Y*LEDS_TANG];
+uint8_t *frames[FRAMES];
 
 pthread_mutex_t frames_mutex= PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t frames_cond= PTHREAD_COND_INITIALIZER;
@@ -87,15 +88,22 @@ release_slot()
 static void *
 io_thread_handler(void *app_data __attribute__((unused)))
 {
+  size_t buf_size = (3*LEDS_X*LEDS_Y*LEDS_TANG+511)/512*512;
   /* Frame format is raw framebuffer data padded to multiple of 512 bytes. */
-  uint8_t buf[(3*LEDS_X*LEDS_Y*LEDS_TANG+511)/512*512];
+  uint8_t *buf;
+
+  buf = (uint8_t *)malloc(buf_size);
+  if (!buf) {
+    fprintf(stderr, "Error: Failed to allocate %d bytes for I/O buffer\n", (int)buf_size);
+    exit(1);
+  }
 
   for (;;)
   {
     unsigned sofar= 0;
-    while (sofar < sizeof(buf))
+    while (sofar < buf_size)
     {
-      ssize_t res= read(0, &(buf[sofar]), sizeof(buf) - sofar);
+      ssize_t res= read(0, &(buf[sofar]), buf_size - sofar);
       if (res < 0 && errno != EINTR)
       {
         fprintf(stderr, "Error: read() returns res=%d: %d: %s\n",
@@ -126,7 +134,7 @@ io_thread_handler(void *app_data __attribute__((unused)))
 }
 
 
-static uint8_t current_frame[3*LEDS_X*LEDS_Y*LEDS_TANG];
+static uint8_t *current_frame = 0;
 static pthread_mutex_t current_frame_mutex= PTHREAD_MUTEX_INITIALIZER;
 
 /*
@@ -150,7 +158,7 @@ framerate_thread_handler(void *app_data __attribute__((unused)))
   {
     int slot= get_ready_slot();
     pthread_mutex_lock(&current_frame_mutex);
-    memcpy(current_frame, &(frames[slot]), sizeof(frames[slot]));
+    memcpy(current_frame, frames[slot], 3*LEDS_X*LEDS_Y*LEDS_TANG);
     pthread_mutex_unlock(&current_frame_mutex);
     release_slot();
 
@@ -207,6 +215,17 @@ static pthread_t current_frame_thread;
 void
 start_io_threads()
 {
+  for (int i = 0; i < FRAMES; ++i) {
+    if (!(frames[i] = (uint8_t *)malloc(3*LEDS_X*LEDS_Y*LEDS_TANG))) {
+      fprintf(stderr, "Out of memory allocating framebuffers\n");
+      exit(1);
+    }
+  }
+  if (!(current_frame = (uint8_t *)malloc(3*LEDS_X*LEDS_Y*LEDS_TANG))) {
+    fprintf(stderr, "Out of memory allocating current_frame\n");
+    exit(1);
+  }
+
   int res= pthread_create(&io_thread, NULL, io_thread_handler, NULL);
   if (res != 0)
   {
