@@ -139,7 +139,6 @@ load_ply(const char *file_name, struct stanford_ply *p)
         property list uchar uint vertex_indices
     */
   }
-  printf("Vertices: %d ; faces: %d\n", num_vertex, num_face);
   if (num_vertex < 0 || num_face < 0) {
     fprintf(stderr, "Incomplete header while reading file '%s'\n", file_name);
     goto err;
@@ -195,10 +194,6 @@ load_ply(const char *file_name, struct stanford_ply *p)
     p->c_g[i] = col[1];
     p->c_b[i] = col[2];
     p->c_a[i] = col[3];
-    printf("  V[%4d]: %10.2f  %10.2f  %10.2f  %08x\n",
-           i, arr[0], arr[1], arr[2],
-           ((uint32_t)col[0] << 24) | ((uint32_t)col[1] << 16) |
-           ((uint32_t)col[2] << 8) | (uint32_t)col[3]);
   }
 
   for (int i = 0; i < num_face; ++i) {
@@ -208,19 +203,17 @@ load_ply(const char *file_name, struct stanford_ply *p)
 
     if (read_uchar(f, &list_len, file_name))
       goto err;
-    printf("  F[%4d]:", i);
-    if (!(list = calloc(list_len, sizeof(*list)))) {
+    if (!(list = calloc(list_len+1, sizeof(*list)))) {
       fprintf(stderr, "Out of memory allocating %d face corners.\n", (int)list_len);
       goto err;
     }
     list[0] = list_len;
+    p->face_idx[i] = list;
     for (int j = 0; j < list_len; ++j) {
       if (read_uint(f, &idx, file_name))
         goto err;
       list[j+1] = idx;
-      printf(" %4u", (unsigned)idx);
     }
-    printf("\n");
   }
 
   if (!feof(f) && fgetc(f) != EOF) {
@@ -252,11 +245,35 @@ free_ply(const struct stanford_ply *p)
   free(p->c_a);
 }
 
+__attribute__((unused))
+static void
+dump_ply(const struct stanford_ply *p)
+{
+  printf("Vertices: %d ; faces: %d\n", p->num_vertex, p->num_face);
+  for (int i = 0; i < p->num_vertex; ++i) {
+    printf("  V[%4d]: %10.2f  %10.2f  %10.2f  %08x\n",
+           i, p->vertex[i][0], p->vertex[i][1], p->vertex[i][2],
+           ((uint32_t)p->c_r[i] << 24) | ((uint32_t)p->c_g[i] << 16) |
+           ((uint32_t)p->c_b[i] << 8) | (uint32_t)p->c_a[i]);
+  }
+  for (int i = 0; i < p->num_face; ++i) {
+    printf("  F[%4d]:", i);
+    for (uint32_t j = 0; j < p->face_idx[i][0]; ++j) {
+      printf(" %4u", (unsigned)p->face_idx[i][j+1]);
+    }
+    printf("\n");
+  }
+}
+
+#ifdef TEST_MAIN
 int
 main(int argc, char *argv[])
 {
   struct stanford_ply ply;
-  load_ply("vertex_colour_test2.ply", &ply);
-  free_ply(&ply);
+  if (!load_ply("vertex_colour_test2.ply", &ply)) {
+    dump_ply(&ply);
+    free_ply(&ply);
+  }
   return 0;
 }
+#endif
