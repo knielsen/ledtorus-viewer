@@ -1,0 +1,262 @@
+#include <stdint.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
+#include <math.h>
+
+#include "stanford_ply_loader.h"
+
+
+static int
+read_float(FILE *f, float *p, const char *file_name)
+{
+  union { uint32_t u ; float f; } pun;
+  unsigned char buf[4];
+  if (1 != fread(buf, 4, 1, f)) {
+    fprintf(stderr, "EOF or error reading file '%s'.\n", file_name);
+    return -1;
+  }
+  /* Little-endian conversion to float. */
+  pun.u = (uint32_t) buf[0] |
+    ((uint32_t) buf[1] << 8) |
+    ((uint32_t) buf[2] << 16) |
+    ((uint32_t) buf[3] << 24);
+  if (!isfinite(pun.f)) {
+    fprintf(stderr, "Invalid floating point number while reading file '%s'\n",
+            file_name);
+    return -1;
+  }
+  *p = pun.f;
+  return 0;
+}
+
+static int
+read_uchar(FILE *f, uint8_t *p, const char *file_name)
+{
+  unsigned char buf[1];
+  if (1 != fread(buf, 1, 1, f)) {
+    fprintf(stderr, "EOF or error reading file '%s'.\n", file_name);
+    return -1;
+  }
+  *p = buf[0];
+  return 0;
+}
+
+static int
+read_uint(FILE *f, uint32_t *p, const char *file_name)
+{
+  unsigned char buf[4];
+  if (1 != fread(buf, 4, 1, f)) {
+    fprintf(stderr, "EOF or error reading file '%s'.\n", file_name);
+    return -1;
+  }
+  /* Little-endian conversion. */
+  *p = (uint32_t) buf[0] |
+    ((uint32_t) buf[1] << 8) |
+    ((uint32_t) buf[2] << 16) |
+    ((uint32_t) buf[3] << 24);
+  return 0;
+}
+
+int
+load_ply(const char *file_name, struct stanford_ply *p)
+{
+  FILE *f;
+  char buf[256];
+  int num_vertex;
+  int num_face;
+
+  p->num_vertex = -1;
+  p->num_face = -1;
+  p->vertex = NULL;
+  p->normal = NULL;
+  p->c_r = NULL;
+  p->c_g = NULL;
+  p->c_b = NULL;
+  p->c_a = NULL;
+  p->face_idx = NULL;
+
+  f = fopen(file_name, "rb");
+  if (!f) {
+    fprintf(stderr, "Failed to open file '%s' for reading.\n", file_name);
+    return -1;
+  }
+
+  if (!fgets(buf, sizeof(buf), f)) {
+    fprintf(stderr, "Error/EOF reading file '%s' while looking for header.\n",
+            file_name);
+    goto err;
+  }
+  if (0 != strcmp(buf, "ply\n")) {
+    fprintf(stderr, "'ply' header not found while reading file '%s'.\n",
+            file_name);
+    goto err;
+  }
+
+  /* Now look for end_header while finding number of vertexes and faces. */
+  num_vertex = -1;
+  num_face = -1;
+  for (;;) {
+    int n;
+
+    if (!fgets(buf, sizeof(buf), f)) {
+      fprintf(stderr, "Error/EOF reading file '%s' while reading ply header.\n",
+              file_name);
+      goto err;
+    }
+    if (0 == strcmp(buf, "end_header\n")) {
+      break;
+    } else if (sscanf(buf, "element vertex %d", &n)) {
+      if (n <= 0 && n >= 1e8) {
+        fprintf(stderr, "Invalid number of vertexes found: %d\n", n);
+        goto err;
+      }
+      num_vertex = n;
+    } else if (sscanf(buf, "element face %d", &n)) {
+      if (n <= 0 && n >= 1e8) {
+        fprintf(stderr, "Invalid number of faces found: %d\n", n);
+        goto err;
+      }
+      num_face = n;
+    }
+    /*
+      For now, just assume the format of the data:
+        format binary_little_endian 1.0
+        element vertex *
+        property float x
+        property float y
+        property float z
+        property float nx
+        property float ny
+        property float nz
+        property float s
+        property float t
+        property uchar red
+        property uchar green
+        property uchar blue
+        property uchar alpha
+        element face *
+        property list uchar uint vertex_indices
+    */
+  }
+  printf("Vertices: %d ; faces: %d\n", num_vertex, num_face);
+  if (num_vertex < 0 || num_face < 0) {
+    fprintf(stderr, "Incomplete header while reading file '%s'\n", file_name);
+    goto err;
+  }
+  if (!(p->vertex = calloc(num_vertex, sizeof((*p->vertex))))) {
+    fprintf(stderr, "Out of memory allocating %d vertices\n", num_vertex);
+    goto err;
+  }
+  if (!(p->normal = calloc(num_vertex, sizeof((*p->normal))))) {
+    fprintf(stderr, "Out of memory allocating %d normals\n", num_vertex);
+    goto err;
+  }
+  if (!(p->c_r = calloc(num_vertex, sizeof(p->c_r[0])))) {
+    fprintf(stderr, "Out of memory allocating %d red-colour values\n", num_vertex);
+    goto err;
+  }
+  if (!(p->c_g = calloc(num_vertex, sizeof(p->c_g[0])))) {
+    fprintf(stderr, "Out of memory allocating %d green-colour values\n", num_vertex);
+    goto err;
+  }
+  if (!(p->c_b = calloc(num_vertex, sizeof(p->c_b[0])))) {
+    fprintf(stderr, "Out of memory allocating %d blue-colour values\n", num_vertex);
+    goto err;
+  }
+  if (!(p->c_a = calloc(num_vertex, sizeof(p->c_a[0])))) {
+    fprintf(stderr, "Out of memory allocating %d alpha values\n", num_vertex);
+    goto err;
+  }
+  if (!(p->face_idx = calloc(num_face, sizeof(*p->face_idx)))) {
+    fprintf(stderr, "Out of memory allocating %d face pointers\n", num_face);
+    goto err;
+  }
+  p->num_vertex = num_vertex;
+  p->num_face = num_face;
+
+  for (int i = 0; i < num_vertex; ++i) {
+    float arr[8];
+    uint8_t col[4];
+
+    for (int j = 0; j < 8; ++j) {
+      if (read_float(f, &arr[j], file_name))
+        goto err;
+    }
+    for (int j = 0; j < 4; ++j) {
+      if (read_uchar(f, &col[j], file_name))
+        goto err;
+    }
+    for (int j = 0; j < 3; ++j) {
+      p->vertex[i][j] = arr[j];
+      p->normal[i][j] = arr[j+3];
+    }
+    p->c_r[i] = col[0];
+    p->c_g[i] = col[1];
+    p->c_b[i] = col[2];
+    p->c_a[i] = col[3];
+    printf("  V[%4d]: %10.2f  %10.2f  %10.2f  %08x\n",
+           i, arr[0], arr[1], arr[2],
+           ((uint32_t)col[0] << 24) | ((uint32_t)col[1] << 16) |
+           ((uint32_t)col[2] << 8) | (uint32_t)col[3]);
+  }
+
+  for (int i = 0; i < num_face; ++i) {
+    uint8_t list_len;
+    uint32_t idx;
+    uint32_t *list;
+
+    if (read_uchar(f, &list_len, file_name))
+      goto err;
+    printf("  F[%4d]:", i);
+    if (!(list = calloc(list_len, sizeof(*list)))) {
+      fprintf(stderr, "Out of memory allocating %d face corners.\n", (int)list_len);
+      goto err;
+    }
+    list[0] = list_len;
+    for (int j = 0; j < list_len; ++j) {
+      if (read_uint(f, &idx, file_name))
+        goto err;
+      list[j+1] = idx;
+      printf(" %4u", (unsigned)idx);
+    }
+    printf("\n");
+  }
+
+  if (!feof(f) && fgetc(f) != EOF) {
+    fprintf(stderr, "Warning: Did not read to end of file '%s' (ended at %ld)\n",
+            file_name, ftell(f));
+  }
+
+  fclose(f);
+  return 0;
+err:
+  free_ply(p);
+  fclose(f);
+  return -1;
+}
+
+void
+free_ply(const struct stanford_ply *p)
+{
+  if (p->face_idx) {
+    for (int i = 0; i < p->num_face; ++i)
+      free(p->face_idx[i]);
+    free(p->face_idx);
+  }
+  free(p->vertex);
+  free(p->normal);
+  free(p->c_r);
+  free(p->c_g);
+  free(p->c_b);
+  free(p->c_a);
+}
+
+int
+main(int argc, char *argv[])
+{
+  struct stanford_ply ply;
+  load_ply("vertex_colour_test2.ply", &ply);
+  free_ply(&ply);
+  return 0;
+}
