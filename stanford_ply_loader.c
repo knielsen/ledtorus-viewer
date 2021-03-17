@@ -4,6 +4,7 @@
 #include <string.h>
 #include <math.h>
 
+#include "render3d.h"
 #include "stanford_ply_loader.h"
 
 
@@ -271,7 +272,31 @@ main(int argc, char *argv[])
 {
   struct stanford_ply ply;
   if (!load_ply("vertex_colour_test2.ply", &ply)) {
+    struct vec3d q;
+
     dump_ply(&ply);
+
+    q.x = -0.8;
+    q.y = 0.2;
+    q.z = 0.3;
+    for (int i = 0; i < ply.num_face; ++i) {
+      check_point_against_poly(q, i, &ply);
+    }
+
+    q.x = -1.2;
+    q.y = 0.2;
+    q.z = 0.3;
+    for (int i = 0; i < ply.num_face; ++i) {
+      check_point_against_poly(q, i, &ply);
+    }
+
+    q.x = -1.2;
+    q.y = 1.5;
+    q.z = 0.3;
+    for (int i = 0; i < ply.num_face; ++i) {
+      check_point_against_poly(q, i, &ply);
+    }
+
     free_ply(&ply);
   }
   return 0;

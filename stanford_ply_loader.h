@@ -1,3 +1,6 @@
+#ifndef STANFORD_PLY_LOADER_H
+#define STANFORD_PLY_LOADER_H
+
 struct stanford_ply {
   int num_vertex;
   int num_face;
@@ -16,3 +19,5 @@ struct stanford_ply {
 
 extern int load_ply(const char *file_name, struct stanford_ply *p);
 extern void free_ply(const struct stanford_ply *p);
+
+#endif  /* !STANFORD_PLY_LOADER_H */

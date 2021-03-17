@@ -1,0 +1,6 @@
+.PHONY: all
+
+all: a.out
+
+a.out: stanford_ply_loader.c render3d.c stanford_ply_loader.h render3d.h
+	gcc -DTEST_MAIN -g -Wall stanford_ply_loader.c render3d.c -lm
