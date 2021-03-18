@@ -30,6 +30,15 @@ setpix(frame_t *f, uint32_t x, uint32_t y, uint32_t a,
 }
 
 
+struct colour3 {
+  uint8_t r, g, b;
+};
+
+struct hsv3 {
+  uint8_t h, s, v;
+};
+
+
 extern struct torus_xz torus_polar2rect(float x, float a);
 extern void cls(frame_t *f);
 extern void envelope(frame_t *f, uint32_t c);

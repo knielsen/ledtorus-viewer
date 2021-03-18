@@ -18,13 +18,6 @@
 */
 static const float tang_factor = 2.0f;
 
-struct colour3 {
-  uint8_t r, g, b;
-};
-
-struct hsv3 {
-  uint8_t h, s, v;
-};
 static inline struct hsv3 mk_hsv3(uint8_t h, uint8_t s, uint8_t v)
 {
   struct hsv3 res;

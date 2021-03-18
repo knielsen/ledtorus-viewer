@@ -276,26 +276,20 @@ main(int argc, char *argv[])
 
     dump_ply(&ply);
 
-    q.x = -0.8;
-    q.y = 0.2;
-    q.z = 0.3;
-    for (int i = 0; i < ply.num_face; ++i) {
-      check_point_against_poly(q, i, &ply);
-    }
+    q.x = -0.8; q.y = 0.2; q.z = 0.3;
+    check_point_against_poly(q, &ply);
 
-    q.x = -1.2;
-    q.y = 0.2;
-    q.z = 0.3;
-    for (int i = 0; i < ply.num_face; ++i) {
-      check_point_against_poly(q, i, &ply);
-    }
+    q.x = -1.2; q.y = 0.2; q.z = 0.3;
+    check_point_against_poly(q, &ply);
 
-    q.x = -1.2;
-    q.y = 1.5;
-    q.z = 0.3;
-    for (int i = 0; i < ply.num_face; ++i) {
-      check_point_against_poly(q, i, &ply);
-    }
+    q.x = -1.2; q.y = 1.5; q.z = 0.3;
+    check_point_against_poly(q, &ply);
+
+    q.x = -1.1; q.y = 0.99; q.z = 0.3;
+    check_point_against_poly(q, &ply);
+
+    q.x = -0.9; q.y = .91; q.z = 0.92;
+    check_point_against_poly(q, &ply);
 
     free_ply(&ply);
   }
