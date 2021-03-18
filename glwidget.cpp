@@ -141,11 +141,11 @@ void GLWidget::paintGL()
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glLoadIdentity();
     glTranslatef(0.0, 0.0, -10.0);
-    int x = xRot + 80*sin(frame_counter / 20.0);
+    int x = xRot + 0*80*sin(frame_counter / 20.0);
     qNormalizeAngle(x);
-    int y = yRot + 65*cos(frame_counter / 35.0);
+    int y = yRot + 0*65*cos(frame_counter / 35.0);
     qNormalizeAngle(y);
-    int z = zRot + 40*sin(frame_counter / 55.0);
+    int z = zRot + 0*40*sin(frame_counter / 55.0);
     qNormalizeAngle(z);
     glRotatef(x / 16.0, 1.0, 0.0, 0.0);
     glRotatef(y / 16.0, 0.0, 1.0, 0.0);
