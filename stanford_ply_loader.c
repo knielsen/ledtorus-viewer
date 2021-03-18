@@ -246,6 +246,61 @@ free_ply(const struct stanford_ply *p)
   free(p->c_a);
 }
 
+
+/*
+  Normalise the coordinates so the object is centered around (0,0,0) and fits
+  within [-1,1] in all three x,y,z dimensions.
+*/
+void
+normalize_ply(struct stanford_ply *p)
+{
+  float x0, x1, y0, y1, z0, z1;
+  float xrange, yrange, zrange, range;
+  float xdelta, ydelta, zdelta, scale;
+
+  if (p->num_vertex <= 0)
+    return;
+  x0 = x1 = p->vertex[0][0];
+  y0 = y1 = p->vertex[0][1];
+  z0 = z1 = p->vertex[0][2];
+  for (uint32_t i = 1; i < p->num_vertex; ++i) {
+    if (p->vertex[i][0] < x0)
+      x0 = p->vertex[i][0];
+    else if (p->vertex[i][0] > x1)
+      x1 = p->vertex[i][0];
+    if (p->vertex[i][1] < y0)
+      y0 = p->vertex[i][1];
+    else if (p->vertex[i][1] > y1)
+      y1 = p->vertex[i][1];
+    if (p->vertex[i][2] < z0)
+      z0 = p->vertex[i][2];
+    else if (p->vertex[i][2] > z1)
+      z1 = p->vertex[i][2];
+  }
+  xrange = x1 - x0;
+  yrange = y1 - y0;
+  zrange = z1 - z0;
+  range = xrange;
+  if (yrange > range)
+    range = yrange;
+  if (zrange > range)
+    range = zrange;
+  if (range <= 0.0f)
+    return;
+
+  scale = 2.0f / range;
+  xdelta = -.5f*(x0+x1);
+  ydelta = -.5f*(y0+y1);
+  zdelta = -.5f*(z0+z1);
+
+  for (uint32_t i = 0; i < p->num_vertex; ++i) {
+    p->vertex[i][0] = scale * (p->vertex[i][0] + xdelta);
+    p->vertex[i][1] = scale * (p->vertex[i][1] + ydelta);
+    p->vertex[i][2] = scale * (p->vertex[i][2] + zdelta);
+  }
+}
+
+
 __attribute__((unused))
 static void
 dump_ply(const struct stanford_ply *p)

@@ -38,6 +38,10 @@ struct hsv3 {
   uint8_t h, s, v;
 };
 
+struct vec3d {
+  float x, y, z;
+};
+
 
 extern struct torus_xz torus_polar2rect(float x, float a);
 extern void cls(frame_t *f);

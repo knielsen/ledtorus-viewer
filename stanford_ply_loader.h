@@ -19,5 +19,6 @@ struct stanford_ply {
 
 extern int load_ply(const char *file_name, struct stanford_ply *p);
 extern void free_ply(const struct stanford_ply *p);
+extern void normalize_ply(struct stanford_ply *p);
 
 #endif  /* !STANFORD_PLY_LOADER_H */

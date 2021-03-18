@@ -34,11 +34,10 @@ norm_vec(struct vec3d v)
 }
 
 
-struct colour3
-check_point_against_poly(struct vec3d q, const struct stanford_ply *ply)
+static struct colour3
+check_point_against_poly(struct vec3d q, const struct stanford_ply *ply,
+                         float max_inside_dist, float max_outside_dist)
 {
-  const float max_inside_dist = 0.3;
-  const float max_outside_dist = 0.125;
   uint32_t face;
   uint32_t best_face;
   float best_dist;
@@ -65,7 +64,6 @@ check_point_against_poly(struct vec3d q, const struct stanford_ply *ply)
     v.y = q.y - p.y;
     v.z = q.z - p.z;
     dist = dot_prod(v.x, v.y, v.z, n.x, n.y, n.z);
-printf("   dist @ %g\n", dist);
     if ((dist < 0 && -dist > max_inside_dist) ||
         (dist > 0 && dist > max_outside_dist) ||
         (found_any && fabsf(dist) > best_dist))
@@ -97,7 +95,6 @@ printf("   dist @ %g\n", dist);
       }
     }
 
-    printf("  face: %u dist %g is %s\n", (unsigned)face, dist, (inside ? "inside" : "outside"));
     if (!inside)
       continue;
 
@@ -107,15 +104,61 @@ printf("   dist @ %g\n", dist);
   }
 
   if (found_any) {
-    printf("Face %u -> dist %g\n", best_face, best_dist);
     /* ToDo: Here we might interpolate colours from different corners of the face. */
     col.r = ply->c_r[ply->face_idx[best_face][1]];
     col.g = ply->c_g[ply->face_idx[best_face][1]];
     col.b = ply->c_b[ply->face_idx[best_face][1]];
   } else {
-    printf("no close face\n");
     col.r = 0; col.g = 0; col.b = 0;
   }
-  printf("  colour %3d %3d %3d\n", col.r, col.g, col.b);
   return col;
+}
+
+
+uint32_t
+render3d_init(struct st_render3d *c)
+{
+  const char *filename = "vertex_colour_test2.ply";
+
+  if (load_ply(filename, &c->ply))
+    return 1;
+  normalize_ply(&c->ply);
+
+  return 0;
+}
+
+
+uint32_t
+render3d_anim_frame(frame_t *f, uint32_t frame, struct st_render3d *c)
+{
+  int ix, iy, ia;
+
+  cls(f);
+  envelope(f, frame);
+
+  for (ix = 0; ix < LEDS_X; ++ix) {
+    for (ia = 0; ia < LEDS_TANG; ++ia) {
+      struct torus_xz pos2 = torus_polar2rect((float)ix,
+                                              (float)ia+0.3*(float)frame);
+      float x = pos2.x;
+      float z = pos2.z;
+      for (iy = 0; iy < LEDS_Y; ++iy) {
+        const float scaling = 1.2f*/*ToDo*/(2.0f/(float)(LEDS_X-1));
+        float y = (float)iy;
+        float rdx = (x - 8.25) * scaling;
+        float rdy = (y - 0.5f*(float)(LEDS_Y-1)) * scaling;
+        float rdz = z * scaling;
+        struct vec3d q;
+        struct colour3 col;
+        q.x = rdx;
+        q.y = rdy;
+        q.z = rdz;
+        col = check_point_against_poly(q, &c->ply, 0.125f, 0.0333f);
+        if (col.r != 0 || col.g != 0 || col.b != 0)
+          setpix(f, ix, iy, ia, col.r, col.g, col.b);
+      }
+    }
+  }
+
+  return (frame > 2*60*25);
 }

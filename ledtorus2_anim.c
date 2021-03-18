@@ -11,6 +11,8 @@
 #include "ledtorus2_anim.h"
 #include "simplex_noise.h"
 #include "colours.h"
+#include "render3d.h"
+
 
 /*
    A factor to compensate that pixels are much smaller in the tangential
@@ -76,6 +78,8 @@ union anim_data {
     uint32_t stage1;
     int text_idx;
   } migrating_dots[3];
+
+  struct st_render3d render3d;
 };
 
 struct ledtorus_anim;
@@ -692,6 +696,23 @@ an_fireworks(frame_t *f, uint32_t frame, union anim_data *data)
 
 
 static uint32_t
+in_render3d(const struct ledtorus_anim *self __attribute__((unused)),
+              union anim_data *data)
+{
+  struct st_render3d *c = &data->render3d;
+  return render3d_init(c);
+}
+
+
+static uint32_t
+an_render3d(frame_t *f, uint32_t frame, union anim_data *data)
+{
+  struct st_render3d *c = &data->render3d;
+  return render3d_anim_frame(f, frame, c);
+}
+
+
+static uint32_t
 an_test1(frame_t *f, uint32_t frame, union anim_data *data)
 {
   cls(f);
@@ -772,6 +793,13 @@ main(int argc, char *argv[])
     case 13:
       an_graphs(&frame, n, NULL);
       break;
+    case 14:
+    {
+      if (n == 0)
+        in_render3d(NULL, &private_data);
+      an_render3d(&frame, n, &private_data);
+      break;
+    }
     case 8:
     case 9:
     case 10:

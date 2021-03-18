@@ -1,10 +1,11 @@
 #include "stanford_ply_loader.h"
 #include "ledtorus2_anim.h"
 
-struct vec3d {
-  float x, y, z;
+
+struct st_render3d {
+  struct stanford_ply ply;
 };
 
 
-extern struct colour3 check_point_against_poly(struct vec3d q,
-                                               const struct stanford_ply *ply);
+extern uint32_t render3d_init(struct st_render3d *c);
+extern uint32_t render3d_anim_frame(frame_t *f, uint32_t frame, struct st_render3d *c);
