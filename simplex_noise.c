@@ -91,3 +91,18 @@ simplex_noise_3d(float x, float y, float z)
     K(lo, A, ix, jx, kx, u, v, w) +
     K(0, A, ix, jx, kx, u, v, w);
 }
+
+
+/* This is kind of a misunderstanding. The output of the plain simplex
+   function is already -1..1, it seems, just apparently very unlikely
+   to go outside -.9...9 in practice?
+*/
+float
+simplex_noise_3d_norm(float x, float y, float z)
+{
+  const float s_min = -0.906f;
+  const float s_max = 0.658f;
+  const float s_scale = 2.0f/(s_max-s_min);
+  float v = simplex_noise_3d(x, y, z);
+  return (v-(s_min+1/s_scale))*s_scale;
+}
