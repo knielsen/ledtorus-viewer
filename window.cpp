@@ -90,7 +90,7 @@ QSlider *Window::createSlider()
 
 void Window::keyPressEvent(QKeyEvent *e)
 {
-    if (e->key() == Qt::Key_Escape)
+    if (e->key() == Qt::Key_Escape || e->key() == Qt::Key_Q)
         close();
     else
         QWidget::keyPressEvent(e);
