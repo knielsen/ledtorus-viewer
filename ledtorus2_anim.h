@@ -6,6 +6,12 @@
 #define LEDS_X 14
 #define LEDS_Y 16
 #define LEDS_TANG 205
+
+#define TORUS_LED_DIST 5.5f
+#define TORUS2_LED_DIST 4.0f
+#define TORUS_LED2CENTER (14.19f/TORUS_LED_DIST)
+#define TORUS2_LED2CENTER (19.11f/TORUS2_LED_DIST)
+
 typedef uint8_t frame_t[LEDS_Y*LEDS_X*LEDS_TANG][3];
 
 #define F_PI 3.141592654f

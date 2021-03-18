@@ -1,2 +1,4 @@
 ledtorus_anim: ledtorus_anim.c simplex_noise.c colours.c rubberduck.c
 	gcc -Wall -O3 -g -o $@ $^ -lm
+ledtorus2_anim: ledtorus2_anim.c simplex_noise.c colours.c rubberduck.c
+	gcc -Wall -O3 -g -o $@ $^ -lm

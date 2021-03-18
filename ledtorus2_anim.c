@@ -102,6 +102,16 @@ struct torus_xz torus_polar2rect(float x, float a)
 }
 
 
+struct torus_xz torus2_polar2rect(float x, float a)
+{
+  struct torus_xz res;
+  float angle = a * (F_PI*2.0f/(float)LEDS_TANG);
+  res.x = (x+TORUS2_LED2CENTER)*cosf(angle);
+  res.z = (x+TORUS2_LED2CENTER)*sinf(angle);
+  return res;
+}
+
+
 /* Random integer 0 <= x < N. */
 static int
 irand(int n)
@@ -296,6 +306,7 @@ static const uint8_t tonc_font[8*96] = {
 };
 
 
+__attribute__((unused))
 static uint32_t
 g_text(frame_t *f, const char *text, uint32_t x, uint32_t a,
        uint8_t c_r, uint8_t c_g, uint8_t c_b, float s_fact)
@@ -390,6 +401,303 @@ envelope(frame_t *f, uint32_t c)
 }
 
 
+static void
+an_ghost(frame_t *f, uint32_t c, void *st __attribute__((unused)))
+{
+  uint32_t a, x;
+  float ph;
+  uint32_t skip;
+
+  ph = (float)c * 0.19f;
+  skip = (c % 128) < 64;
+
+  cls(f);
+  envelope(f, c);
+  for (x = 0; x < LEDS_X; ++x)
+  {
+    float w = ((float)x+4.7) * 0.24f + ph;
+    float y = ((float)LEDS_Y / 2.0f) * (1.0f + cosf(w));
+    int32_t i_y = y;
+
+    for (a = 0; a < LEDS_TANG; ++a)
+    {
+      if (skip && (a % 8))
+        continue;
+      // ToDo: try some anti-aliasing?
+      if (i_y >= 0 && i_y < LEDS_Y)
+      {
+        struct colour3 col;
+        col = hsv2rgb_f((float)a*(1.0f/(float)LEDS_TANG), 0.9f, 0.9f);
+        setpix(f, x, i_y, a, col.r, col.g, col.b);
+      }
+    }
+  }
+}
+
+
+static void
+an_graphs(frame_t *f, uint32_t c, void *st __attribute__((unused)))
+{
+  const float scale_x = .01f;
+  const float scale_a = .01f;
+  const float scale_t = 0.0063f;
+  const float oct2_freq = 2.0f;
+  const float oct3_freq = 4.0f;
+  const float oct2_scale = 0.6f;
+  const float oct3_scale = 0.6f*0.6f;
+  const int32_t skip = 2;
+  const int32_t antialias = 1;
+  int32_t a, x;
+
+  cls(f);
+  //envelope(f, c);
+  for (a = 0; a < LEDS_TANG; a += skip) {
+    for (x = 0; x < LEDS_X; ++x) {
+      struct torus_xz rect = torus2_polar2rect(x, a);
+      float mx = scale_x*rect.x;
+      float my = scale_a*rect.z;
+      float mz = scale_t*c;
+      float v = simplex_noise_3d(mx, my, mz) +
+        oct2_scale*simplex_noise_3d(oct2_freq*mx+100.0f, oct2_freq*my+100.0f, mz) +
+        oct3_scale*simplex_noise_3d(oct3_freq*mx+200.0f, oct3_freq*my+200.0f, mz);
+      struct colour3 col;
+      float y, hue, dummy;
+      hue = modff(.87f+.42f*(v+1.0f), &dummy);
+      y = .5f*LEDS_Y + .5f*LEDS_Y*(.92f*v);
+      if (y < 0.0f)
+        y = 0.0f;
+      else if (y > LEDS_Y-1)
+        y = LEDS_Y-1;
+      if (!antialias) {
+        col = hsv2rgb_f(hue, 0.9f, 0.9f);
+        setpix(f, x, y, a, col.r, col.g, col.b);
+      } else {
+        const float gamma = 2.3f;
+        float delta = modff(y, &dummy);
+        uint32_t y_int = y;
+        if (y_int < LEDS_Y-1) {
+          col = hsv2rgb_f(hue, 0.9f, powf(delta, gamma));
+          setpix(f, x, y_int+1, a, col.r, col.g, col.b);
+        }
+        col = hsv2rgb_f(hue, 0.9f, powf(1.0f-delta, gamma));
+        setpix(f, x, y_int, a, col.r, col.g, col.b);
+      }
+    }
+  }
+}
+
+
+/*******************************************************************************
+ *
+ * Fireworks animation.
+ *
+ * (Ported from the corresponding LED-cube animation).
+ *
+ ******************************************************************************/
+
+static void
+ut_fireworks_shiftem(struct st_fireworks *c, uint32_t i)
+{
+  uint32_t j;
+
+  for (j = sizeof(c->p1[0].x)/sizeof(c->p1[0].x[0]) - 1; j > 0; --j)
+  {
+    c->p1[i].x[j] = c->p1[i].x[j-1];
+    c->p1[i].y[j] = c->p1[i].y[j-1];
+    c->p1[i].z[j] = c->p1[i].z[j-1];
+  }
+}
+
+
+static void
+ut_fireworks_setpix(frame_t *f, float xf, float yf, float zf, struct hsv3 col)
+{
+  int x = roundf(xf);
+  int y = roundf(yf*tang_factor);
+  int z = roundf(zf);
+  if (y < 0)
+    y += LEDS_TANG;
+  else if (y >= LEDS_TANG)
+    y -= LEDS_TANG;
+  if (x >= 0 && x < LEDS_X && y >= 0 && y < LEDS_TANG && z >= 0 && z < LEDS_Y)
+  {
+    struct colour3 rgb =
+      hsv2rgb_f((float)col.h/255.0f, (float)col.s/255.0f, (float)col.v/255.0f);
+    setpix(f, x, (LEDS_Y-1)-z, y, rgb.r, rgb.g, rgb.b);
+  }
+}
+
+
+static uint32_t
+in_fireworks(const struct ledtorus_anim *self __attribute__((unused)),
+             union anim_data *data)
+{
+  struct st_fireworks *c = &data->fireworks;
+  c->num_phase1 = 0;
+  c->num_phase2 = 0;
+  return 0;
+}
+
+
+static uint32_t
+an_fireworks(frame_t *f, uint32_t frame, union anim_data *data)
+{
+  uint32_t i, j;
+
+  struct st_fireworks *c= &data->fireworks;
+
+  static const uint32_t max_phase1 = sizeof(c->p1)/sizeof(c->p1[0]);
+  static const uint32_t max_phase2 = sizeof(c->p2)/sizeof(c->p2[0]);
+  static const float g = 0.045f;
+  static const int new_freq = 14;
+  static const float min_height = 8.0f;
+  static const float max_height = 15.0f;
+  static const uint32_t min_start_delay = 32;
+  static const uint32_t max_start_delay = 67;
+  static const uint32_t min_end_delay = 50;
+  static const uint32_t max_end_delay = 100;
+  const float V = 0.5f;
+  static const float resist = 0.06f;
+  static const float min_fade_factor = 0.22f/15.0f;
+  static const float max_fade_factor = 0.27f/15.0f;
+
+  /* Start a new one occasionally. */
+  if (c->num_phase1 == 0 || (c->num_phase1 < max_phase1 && irand(new_freq) == 0))
+  {
+    i = c->num_phase1++;
+
+    c->p1[i].x[0] = 4.0f + drand(7.0f);
+    c->p1[i].y[0] = drand((float)LEDS_TANG/tang_factor);
+    c->p1[i].z[0] = 0.0f;
+    for (j = 0; j < sizeof(c->p1[0].x)/sizeof(c->p1[0].x[0]) - 1; ++j)
+      ut_fireworks_shiftem(c, i);
+
+    c->p1[i].vx = drand(0.35f) - 0.175f;
+    c->p1[i].vy = drand(0.35f/tang_factor) - 0.175f/tang_factor;
+    c->p1[i].s = min_height + drand(max_height - min_height);
+    c->p1[i].vz = sqrtf(2*g*c->p1[i].s);
+    c->p1[i].col = mk_hsv3_f(0.8f, 0.0f, 0.5f);
+    c->p1[i].base_frame = frame;
+    c->p1[i].delay = min_start_delay + irand(max_start_delay - min_start_delay);
+    c->p1[i].gl_base = frame;
+    c->p1[i].gl_period = 0;
+  }
+
+  for (i = 0; i < c->num_phase1; )
+  {
+    uint32_t d = frame - c->p1[i].base_frame;
+    if (d < c->p1[i].delay)
+    {
+      /* Waiting for launch - make fuse glow effect. */
+      uint32_t gl_delta = frame - c->p1[i].gl_base;
+      if (gl_delta >= c->p1[i].gl_period)
+      {
+        c->p1[i].gl_base = frame;
+        c->p1[i].gl_period = 8 + irand(6);
+        c->p1[i].gl_amp = 0.7f + drand(0.3f);
+        gl_delta = 0;
+      }
+      float glow = c->p1[i].gl_amp*sin((float)gl_delta/c->p1[i].gl_period*F_PI);
+      c->p1[i].col = mk_hsv3_f(0.8f, 0.0f, 0.44f + 0.31f*glow);
+      ++i;
+    }
+    else if (c->p1[i].z[0] > c->p1[i].s)
+    {
+      /* Kaboom! */
+      /* Delete this one, and create a bunch of phase2 ones (if room). */
+      int k = 10 + irand(20);
+      float common_hue = drand(6.5f);
+      while (k-- > 0)
+      {
+        if (c->num_phase2 >= max_phase2)
+          break;            /* No more room */
+        j = c->num_phase2++;
+
+        /* Sample a random direction uniformly. */
+        float vx;
+        float vy;
+        float vz;
+        vrand(V, &vx, &vy, &vz);
+
+        c->p2[j].x = c->p1[i].x[0];
+        c->p2[j].y = c->p1[i].y[0];
+        c->p2[j].z = c->p1[i].z[0];
+        c->p2[j].vx = c->p1[i].vx + vx;
+        c->p2[j].vy = c->p1[i].vy + vy;
+        c->p2[j].vz = c->p1[i].vz + vz;
+        c->p2[j].hue = common_hue < 6.0f? common_hue : drand(6.0f);
+        c->p2[j].col = mk_hsv3_f(c->p2[j].hue, 0.85f, 1.0f);
+        c->p2[j].base_frame = frame;
+        c->p2[j].delay = min_end_delay + irand(max_end_delay - min_end_delay);
+        c->p2[j].fade_factor =
+          min_fade_factor + drand(max_fade_factor - min_fade_factor);
+      }
+      c->p1[i] = c->p1[--c->num_phase1];
+    }
+    else
+    {
+      ut_fireworks_shiftem(c, i);
+      c->p1[i].col = mk_hsv3_f(0.8f, 0.0f, 0.75f);
+      c->p1[i].x[0] += c->p1[i].vx;
+      c->p1[i].y[0] += c->p1[i].vy;
+      c->p1[i].z[0] += c->p1[i].vz;
+      c->p1[i].vz -= g;
+      ++i;
+    }
+  }
+
+  for (i = 0; i < c->num_phase2;)
+  {
+    c->p2[i].x += c->p2[i].vx;
+    c->p2[i].y += c->p2[i].vy;
+    c->p2[i].z += c->p2[i].vz;
+
+    c->p2[i].vx -= resist*c->p2[i].vx;
+    c->p2[i].vy -= resist*c->p2[i].vy;
+    c->p2[i].vz -= resist*c->p2[i].vz + g;
+
+    float value = 1.0f - c->p2[i].fade_factor*(frame - c->p2[i].base_frame);
+    if (value < 0.0f)
+      value = 0.0f;
+    c->p2[i].col = mk_hsv3_f(c->p2[i].hue, 0.85f, value);
+
+    if (c->p2[i].z <= 0.0f)
+    {
+      c->p2[i].z = 0.0f;
+      if (c->p2[i].delay-- == 0 || value <= 0.05f)
+      {
+        /* Delete it. */
+        c->p2[i] = c->p2[--c->num_phase2];
+      }
+      else
+        ++i;
+    }
+    else
+      ++i;
+  }
+
+  cls(f);
+  /* Mark out the "ground". */
+  for (i = 0; i < LEDS_TANG; ++i)
+    for (j = 5; j < LEDS_X; ++j)
+      setpix(f, j, LEDS_Y-1, i, 0, 0, 17);
+
+  /*
+    Draw stage2 first, so we don't overwrite a new rocket with an old, dark
+    ember.
+  */
+  for (i = 0; i < c->num_phase2; ++i)
+    ut_fireworks_setpix(f, c->p2[i].x, c->p2[i].y, c->p2[i].z, c->p2[i].col);
+  for (i = 0; i < c->num_phase1; ++i)
+  {
+    for (j = 0; j < sizeof(c->p1[0].x)/sizeof(c->p1[0].x[0]); ++j)
+      ut_fireworks_setpix(f, c->p1[i].x[j], c->p1[i].y[j], c->p1[i].z[j], c->p1[i].col);
+  }
+
+  return 0;
+}
+
+
 static uint32_t
 an_test1(frame_t *f, uint32_t frame, union anim_data *data)
 {
@@ -412,6 +720,7 @@ an_test2(frame_t *f, uint32_t frame, union anim_data *data)
 }
 
 
+__attribute__((unused))
 static uint32_t
 an_test3(frame_t *f, uint32_t frame, union anim_data *data)
 {
@@ -450,14 +759,33 @@ main(int argc, char *argv[])
     switch (argc > 1 ? atoi(argv[1]) : 0)
     {
     case 0:
-      an_test1(&frame, n, NULL);
+      an_ghost(&frame, n, NULL);
       break;
     case 1:
-      an_test2(&frame, n, NULL);
+      an_test1(&frame, n, NULL);
       break;
     case 2:
+    case 3:
+    case 4:
+    case 5:
+    case 6:
+    case 7:
+    {
+      if (n == 0)
+        in_fireworks(NULL, &private_data);
+      an_fireworks(&frame, n, &private_data);
+      break;
+    }
+    case 13:
+      an_graphs(&frame, n, NULL);
+      break;
+    case 8:
+    case 9:
+    case 10:
+    case 11:
+    case 12:
     default:
-      an_test3(&frame, n, NULL);
+      an_test2(&frame, n, NULL);
       break;
     }
     write(1, frame, len);
