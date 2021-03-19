@@ -118,7 +118,8 @@ check_point_against_poly(struct vec3d q, const struct stanford_ply *ply,
 uint32_t
 render3d_init(struct st_render3d *c)
 {
-  const char *filename = "vertex_colour_test2.ply";
+  //const char *filename = "vertex_colour_test2.ply";
+  const char *filename = "blender/rubberduck.ply";
 
   if (load_ply(filename, &c->ply))
     return 1;
@@ -143,7 +144,7 @@ render3d_anim_frame(frame_t *f, uint32_t frame, struct st_render3d *c)
       float x = pos2.x;
       float z = pos2.z;
       for (iy = 0; iy < LEDS_Y; ++iy) {
-        const float scaling = 1.2f*/*ToDo*/(2.0f/(float)(LEDS_X-1));
+        const float scaling = 0.9f*/*ToDo*/(2.0f/(float)(LEDS_X-1));
         float y = (float)iy;
         float rdx = (x - 8.25) * scaling;
         float rdy = (y - 0.5f*(float)(LEDS_Y-1)) * scaling;

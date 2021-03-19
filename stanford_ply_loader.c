@@ -179,7 +179,7 @@ load_ply(const char *file_name, struct stanford_ply *p)
     float arr[8];
     uint8_t col[4];
 
-    for (int j = 0; j < 8; ++j) {
+    for (int j = 0; j < 6; ++j) {
       if (read_float(f, &arr[j], file_name))
         goto err;
     }
