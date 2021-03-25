@@ -76,6 +76,7 @@ load_ply(const char *file_name, struct stanford_ply *p)
   p->c_b = NULL;
   p->c_a = NULL;
   p->face_idx = NULL;
+  p->has_texture_coords = 0;
 
   f = fopen(file_name, "rb");
   if (!f) {
@@ -119,6 +120,9 @@ load_ply(const char *file_name, struct stanford_ply *p)
         goto err;
       }
       num_face = n;
+    } else if (0 == strcmp(buf, "property float s\n")) {
+      /* _Very_ crude format detection. */
+      p->has_texture_coords = 1;
     }
     /*
       For now, just assume the format of the data:
@@ -179,7 +183,7 @@ load_ply(const char *file_name, struct stanford_ply *p)
     float arr[8];
     uint8_t col[4];
 
-    for (int j = 0; j < 6; ++j) {
+    for (int j = 0; j < (p->has_texture_coords ? 8 : 6); ++j) {
       if (read_float(f, &arr[j], file_name))
         goto err;
     }
