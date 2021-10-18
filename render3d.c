@@ -119,7 +119,10 @@ uint32_t
 render3d_init(struct st_render3d *c)
 {
   //const char *filename = "vertex_colour_test2.ply";
-  const char *filename = "blender/rubberduck.ply";
+  //const char *filename = "blender/rubberduck.ply";
+  const char *filename = "blender/Cactus.ply";
+
+return 0;
 
   if (load_ply(filename, &c->ply))
     return 1;
@@ -132,34 +135,50 @@ render3d_init(struct st_render3d *c)
 uint32_t
 render3d_anim_frame(frame_t *f, uint32_t frame, struct st_render3d *c)
 {
-  int ix, iy, ia;
+  int ix, iz, ia;
+  char buf[100];
+  const char *filename = "/tmp/x/frame_%06u.ply";
+  const int num_frames = 210;
+
+  snprintf(buf, sizeof(buf)-1, filename, (unsigned)(frame%num_frames) + 1);
+  if (load_ply(buf, &c->ply))
+    return 1;
+  normalize_ply(&c->ply);
 
   cls(f);
   envelope(f, frame);
 
   for (ix = 0; ix < LEDS_X; ++ix) {
-    for (ia = 0; ia < LEDS_TANG; ++ia) {
+    for (ia = 0; ia < LEDS_TANG; ia+=2) {
       struct torus_xz pos2 = torus_polar2rect((float)ix,
-                                              (float)ia+0.3*(float)frame);
+                                              (float)ia+0.0f*0.3f*(float)frame+30.0f);
       float x = pos2.x;
-      float z = pos2.z;
-      for (iy = 0; iy < LEDS_Y; ++iy) {
+      float y = pos2.z;
+      for (iz = 0; iz < LEDS_Y; ++iz) {
         const float scaling = 0.9f*/*ToDo*/(2.0f/(float)(LEDS_X-1));
-        float y = (float)iy;
+        float z = (float)iz;
         float rdx = (x - 8.25) * scaling;
-        float rdy = (y - 0.5f*(float)(LEDS_Y-1)) * scaling;
-        float rdz = z * scaling;
+        float rdy = y * scaling;
+        float rdz = (z - 0.5f*(float)(LEDS_Y-1)) * scaling;
         struct vec3d q;
         struct colour3 col;
         q.x = rdx;
         q.y = rdy;
         q.z = rdz;
-        col = check_point_against_poly(q, &c->ply, 0.125f, 0.0333f);
+/*
+        col = check_point_against_poly(q, &c->ply,
+                                       0.125f + 0.125f*sinf((float)frame*.02f),
+                                       0*0.0333f);
+*/
+        col = check_point_against_poly(q, &c->ply,
+                                       .15f,
+                                       0.05f);
         if (col.r != 0 || col.g != 0 || col.b != 0)
-          setpix(f, ix, iy, ia, col.r, col.g, col.b);
+          setpix(f, ix, (LEDS_Y-1)-iz, (LEDS_TANG-1)-ia, col.r, col.g, col.b);
       }
     }
   }
 
+  free_ply(&c->ply);
   return (frame > 2*60*25);
 }

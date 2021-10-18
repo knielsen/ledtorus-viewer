@@ -42,6 +42,8 @@
 #define WINDOW_H
 
 #include <QWidget>
+#include <QSlider>
+#include <QHBoxLayout>
 
 QT_BEGIN_NAMESPACE
 class QSlider;
