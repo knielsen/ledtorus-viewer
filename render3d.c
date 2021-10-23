@@ -139,27 +139,43 @@ render3d_anim_frame(frame_t *f, uint32_t frame, struct st_render3d *c)
   char buf[100];
   const char *filename = "/tmp/x/frame_%06u.ply";
   const int num_frames = 210;
+  const int polar2rect = 0;
+  const int step_tang = 1 /* 2 */;
+  const int normalize = 0;
 
   snprintf(buf, sizeof(buf)-1, filename, (unsigned)(frame%num_frames) + 1);
   if (load_ply(buf, &c->ply))
     return 1;
-  normalize_ply(&c->ply);
+  if (normalize)
+    normalize_ply(&c->ply);
 
   cls(f);
   envelope(f, frame);
 
   for (ix = 0; ix < LEDS_X; ++ix) {
-    for (ia = 0; ia < LEDS_TANG; ia+=2) {
-      struct torus_xz pos2 = torus_polar2rect((float)ix,
-                                              (float)ia+0.0f*0.3f*(float)frame+30.0f);
-      float x = pos2.x;
-      float y = pos2.z;
+    for (ia = 0; ia < LEDS_TANG; ia+=step_tang) {
+      float x, y, rdx, rdy;
+      float scaling;
+
+      if (polar2rect) {
+        struct torus_xz pos2 = torus_polar2rect((float)ix,
+                                                (float)ia+0.0f*0.3f*(float)frame+30.0f);
+        scaling = 0.9f*/*ToDo*/(2.0f/(float)(LEDS_X-1));
+        x = pos2.x;
+        y = pos2.z;
+        rdx = (x - 8.25) * scaling;
+        rdy = y * scaling;
+      } else {
+        scaling = 1.0f*(2.0f/(float)LEDS_Y);
+        float scaling_z = scaling*(2.0f*F_PI*(float)LEDS_X)/(float)LEDS_TANG;
+        x = (float)ix;
+        y = (float)ia;
+        rdx = scaling*(x + (0.5f - 0.5f*(float)LEDS_X));
+        rdy = scaling_z*(y + (0.5f - 0.5f*(float)LEDS_TANG));
+      }
       for (iz = 0; iz < LEDS_Y; ++iz) {
-        const float scaling = 0.9f*/*ToDo*/(2.0f/(float)(LEDS_X-1));
         float z = (float)iz;
-        float rdx = (x - 8.25) * scaling;
-        float rdy = y * scaling;
-        float rdz = (z - 0.5f*(float)(LEDS_Y-1)) * scaling;
+        float rdz = (z + 0.5f - 0.5f*(float)LEDS_Y) * scaling;
         struct vec3d q;
         struct colour3 col;
         q.x = rdx;
